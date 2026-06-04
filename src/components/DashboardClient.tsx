@@ -189,6 +189,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [cat, setCat] = useState<Filter>("all");
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
   const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
+  const [trendByCat, setTrendByCat] = useState(true);
   const [showChange, setShowChange] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
 
@@ -258,13 +259,37 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       color: CATEGORY_COLORS[c.slug],
     }));
 
-  // 기간 내 일자별 추이 (선택 카테고리 기준)
+  // 기간 내 일자별 추이
   const trendCfg = TREND_METRICS.find((t) => t.key === trendKey)!;
   const datesInRange = allDates.filter((d) => d >= rs && d <= re);
-  const trendData = datesInRange.map((d) => ({
-    label: mmdd(d),
-    value: trendCfg.pick(agg(rows.filter((r) => rowDate(r) === d))),
-  }));
+  // 전체 탭 + 카테고리별 모드 → 카테고리마다 라인, 그 외 → 단일 라인
+  const showCatLines = cat === "all" && trendByCat;
+  const trendSeries: { key: string; name: string; color: string }[] = showCatLines
+    ? CATEGORIES.map((c) => ({
+        key: c.slug,
+        name: c.label,
+        color: CATEGORY_COLORS[c.slug],
+      }))
+    : [
+        {
+          key: "value",
+          name: cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label ?? "전체",
+          color: trendCfg.color,
+        },
+      ];
+  const trendData: Record<string, number | string>[] = datesInRange.map((d) => {
+    const dayRows = rows.filter((r) => rowDate(r) === d);
+    if (showCatLines) {
+      const point: Record<string, number | string> = { label: mmdd(d) };
+      for (const c of CATEGORIES) {
+        point[c.slug] = trendCfg.pick(
+          agg(dayRows.filter((r) => r.category === c.slug)),
+        );
+      }
+      return point;
+    }
+    return { label: mmdd(d), value: trendCfg.pick(agg(dayRows)) };
+  });
 
   const days = rs && re ? daysInclusive(rs, re) : 0;
   const effBudget = data.dailyBudget * days;
@@ -360,20 +385,42 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 {periodText} · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
               </span>
             </h3>
-            <div className="flex flex-wrap gap-1">
-              {TREND_METRICS.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setTrendKey(t.key)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    trendKey === t.key
-                      ? "bg-slate-700 text-white"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              {cat === "all" && (
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+                  <button
+                    onClick={() => setTrendByCat(false)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                      !trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                    }`}
+                  >
+                    합산
+                  </button>
+                  <button
+                    onClick={() => setTrendByCat(true)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                      trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                    }`}
+                  >
+                    카테고리별
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {TREND_METRICS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTrendKey(t.key)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                      trendKey === t.key
+                        ? "bg-slate-700 text-white"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           {datesInRange.length <= 1 ? (
@@ -381,7 +428,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {datesInRange.length}일)
             </p>
           ) : (
-            <TrendChart data={trendData} color={trendCfg.color} valueFmt={trendCfg.fmt} />
+            <TrendChart
+              data={trendData}
+              series={trendSeries}
+              valueFmt={trendCfg.fmt}
+            />
           )}
         </div>
       )}
