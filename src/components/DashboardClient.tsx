@@ -194,7 +194,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const earliest = allDates[0] ?? "";
   const latest = allDates[allDates.length - 1] ?? "";
 
-  const [rangeStart, setRangeStart] = useState(earliest);
+  // 기본값: 가장 최근 1일 (전날 대비 = 최근일 vs 바로 전날). 기간은 달력으로 넓힐 수 있음
+  const [rangeStart, setRangeStart] = useState(latest);
   const [rangeEnd, setRangeEnd] = useState(latest);
   const [compareMode, setCompareMode] = useState<CompareMode>("prev");
   const [cat, setCat] = useState<Filter>("all");
@@ -215,21 +216,31 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   };
   const currentRows = data.rows.filter(inRange);
 
-  // 비교 기준 기간 (범위를 통째로 뒤로 이동)
-  const rangeLen = rs && re ? daysInclusive(rs, re) : 1;
-  let baseStart: string, baseEnd: string;
-  if (compareMode === "month") {
-    baseStart = addMonths(rs, -1);
-    baseEnd = addMonths(re, -1);
+  // 비교 기준 기간 — 실제 "저장된 날짜" 기준
+  const selDates = allDates.filter((d) => d >= rs && d <= re);
+  const k = Math.max(1, selDates.length);
+  const firstSelIdx = selDates.length
+    ? allDates.indexOf(selDates[0])
+    : allDates.length;
+
+  let baseDates: string[];
+  if (compareMode === "prev" || compareMode === "day") {
+    // 직전 저장 구간 (동일 개수만큼 이전 저장일) → 단일 날짜면 "바로 직전 저장일"
+    baseDates = allDates.slice(Math.max(0, firstSelIdx - k), firstSelIdx);
   } else {
-    const off = compareMode === "day" ? 1 : compareMode === "week" ? 7 : rangeLen;
-    baseStart = addDays(rs, -off);
-    baseEnd = addDays(re, -off);
+    // 전주(-7일)/전달(-1개월): 해당 구간에 존재하는 저장일
+    const bStart = compareMode === "week" ? addDays(rs, -7) : addMonths(rs, -1);
+    const bEnd = compareMode === "week" ? addDays(re, -7) : addMonths(re, -1);
+    baseDates = allDates.filter((d) => d >= bStart && d <= bEnd);
   }
-  const baseRows = data.rows.filter((r) => {
-    const d = rowDate(r);
-    return d >= baseStart && d <= baseEnd;
-  });
+  const baseSet = new Set(baseDates);
+  const baseRows = data.rows.filter((r) => baseSet.has(rowDate(r)));
+  const basePeriodText =
+    baseDates.length === 0
+      ? "없음"
+      : baseDates[0] === baseDates[baseDates.length - 1]
+        ? fmtDate(baseDates[0])
+        : `${fmtDate(baseDates[0])} - ${fmtDate(baseDates[baseDates.length - 1])}`;
 
   const o = agg(currentRows);
   const base = baseRows.length ? agg(baseRows) : null;
@@ -426,73 +437,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </Banner>
       )}
 
-      {/* 기간 내 추이 */}
-      {data.hasData && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold text-slate-800">
-              기간 내 추이{" "}
-              <span className="text-sm font-normal text-slate-400">
-                {periodText} · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
-              </span>
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
-                <button
-                  onClick={() => setTrendByCat(false)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    !trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
-                  }`}
-                >
-                  합산
-                </button>
-                <button
-                  onClick={() => setTrendByCat(true)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
-                  }`}
-                >
-                  {cat === "all" ? "카테고리별" : "제품별"}
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {TREND_METRICS.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setTrendKey(t.key)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                      trendKey === t.key
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          {datesInRange.length <= 1 ? (
-            <p className="py-10 text-center text-sm text-slate-400">
-              추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {datesInRange.length}일)
-            </p>
-          ) : (
-            <TrendChart
-              data={trendData}
-              series={trendSeries}
-              valueFmt={trendCfg.fmt}
-            />
-          )}
-        </div>
-      )}
-
       {/* 변화 분석 표 */}
       {showChange && (
         <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
           <h3 className="mb-3 font-semibold text-slate-800">
             변화 분석{" "}
             <span className="text-sm font-normal text-slate-400">
-              {periodText} vs {COMPARE_LABEL[compareMode]}
+              {periodText} vs {COMPARE_LABEL[compareMode]} ({basePeriodText})
             </span>
           </h3>
           {!base ? (
@@ -646,6 +597,66 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           slices={slicesOf((m) => m.cost)}
         />
       </div>
+
+      {/* 기간 내 추이 (중앙) */}
+      {data.hasData && (
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold text-slate-800">
+              기간 내 추이{" "}
+              <span className="text-sm font-normal text-slate-400">
+                {periodText} · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
+              </span>
+            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+                <button
+                  onClick={() => setTrendByCat(false)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    !trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  합산
+                </button>
+                <button
+                  onClick={() => setTrendByCat(true)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  {cat === "all" ? "카테고리별" : "제품별"}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {TREND_METRICS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTrendKey(t.key)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                      trendKey === t.key
+                        ? "bg-slate-700 text-white"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {datesInRange.length <= 1 ? (
+            <p className="py-10 text-center text-sm text-slate-400">
+              추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {datesInRange.length}일)
+            </p>
+          ) : (
+            <TrendChart
+              data={trendData}
+              series={trendSeries}
+              valueFmt={trendCfg.fmt}
+            />
+          )}
+        </div>
+      )}
 
       {/* 카테고리 탭 + 퍼널 + 상세 분석 */}
       <section className="rounded-2xl bg-white p-6 shadow-sm">
