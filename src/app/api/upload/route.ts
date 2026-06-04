@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseNaverReport } from "@/lib/parse/naver-report";
+import { parseNaverReport, dateFromFileName } from "@/lib/parse/naver-report";
 import { isCategorySlug } from "@/lib/categories";
 
 export const runtime = "nodejs";
@@ -55,9 +55,10 @@ export async function POST(req: Request) {
     );
   }
 
-  // 날짜 폴백 (파일에 일자 컬럼이 없을 때 사용자가 지정한 기준일)
+  // 날짜 폴백: 사용자가 지정한 기준일 > 파일명에서 추출한 날짜
   const fallbackDate =
-    /^\d{4}-\d{2}-\d{2}$/.test(fallbackDateRaw) ? fallbackDateRaw : null;
+    (/^\d{4}-\d{2}-\d{2}$/.test(fallbackDateRaw) ? fallbackDateRaw : null) ??
+    dateFromFileName(file.name);
 
   const records = parsed.rows.map((r) => ({
     report_date: r.reportDate ?? fallbackDate,

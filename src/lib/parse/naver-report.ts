@@ -108,6 +108,31 @@ function toIsoDate(value: unknown): string | null {
   return null;
 }
 
+/**
+ * 네이버 쇼핑 "소재" 컬럼은 `상품명,가격,카테고리경로,상품URL,...` 형태의
+ * 피드 문자열일 수 있음 → 첫 콤마 앞 상품명만 추출.
+ */
+function cleanCreativeName(value: string | null): string | null {
+  if (!value) return value;
+  const v = value.trim();
+  if (v.includes("http") || v.includes(" > ")) {
+    const name = v.split(",")[0].trim();
+    return name || v;
+  }
+  return v;
+}
+
+/** 파일명 등에서 YYYYMMDD 추출 → ISO 날짜 */
+export function dateFromFileName(name: string): string | null {
+  const m = name.match(/(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const mm = Number(mo);
+  const dd = Number(d);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  return `${y}-${mo}-${d}`;
+}
+
 /** 헤더 배열에서 필드→인덱스 맵 생성 */
 function buildHeaderMap(headers: string[]) {
   const map = new Map<CanonicalField, number>();
@@ -162,11 +187,15 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
 
     const campaign = (get(cells, "campaign") ?? "").toString().trim() || null;
     const adGroup = (get(cells, "adGroup") ?? "").toString().trim() || null;
-    const keyword = (get(cells, "keyword") ?? "").toString().trim() || null;
+    let keyword = (get(cells, "keyword") ?? "").toString().trim() || null;
 
-    // 합계/총계 행 스킵
+    // 합계/총계/요약("소재 46개 결과") 행 스킵
     const firstText = [campaign, adGroup, keyword].find(Boolean) ?? "";
-    if (/^(합계|총계|total)/i.test(firstText)) continue;
+    if (/^(합계|총계|소계|total)/i.test(firstText) || /\d+\s*개\s*결과/.test(firstText))
+      continue;
+
+    // 소재(상품) 피드 형식 "상품명,가격,카테고리경로,URL,..." → 상품명만 추출
+    keyword = cleanCreativeName(keyword);
 
     const impressions = Math.round(toNumber(get(cells, "impressions")));
     const clicks = Math.round(toNumber(get(cells, "clicks")));
