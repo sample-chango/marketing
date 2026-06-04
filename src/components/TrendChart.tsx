@@ -57,6 +57,7 @@ export function TrendChart({
           />
           <Tooltip
             formatter={(v, name) => [valueFmt(Number(v)), name as string]}
+            itemSorter={(item) => -Number(item.value)}
             labelStyle={{ color: "#475569" }}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
