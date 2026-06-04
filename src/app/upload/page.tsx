@@ -7,7 +7,7 @@ import { categoryLabel } from "@/lib/categories";
 interface UploadResult {
   ok?: boolean;
   inserted?: number;
-  dates?: string[];
+  period?: { start: string; end: string };
   categoryCounts?: Record<string, number>;
   unclassifiedCount?: number;
   unclassified?: string[];
@@ -17,7 +17,10 @@ interface UploadResult {
 }
 
 export default function UploadPage() {
+  const [mode, setMode] = useState<"single" | "range">("single");
   const [reportDate, setReportDate] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
@@ -30,7 +33,12 @@ export default function UploadPage() {
 
     const fd = new FormData();
     fd.append("file", file);
-    if (reportDate) fd.append("reportDate", reportDate);
+    if (mode === "single") {
+      if (reportDate) fd.append("reportDate", reportDate);
+    } else {
+      fd.append("periodStart", periodStart);
+      fd.append("periodEnd", periodEnd);
+    }
 
     try {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
@@ -41,6 +49,9 @@ export default function UploadPage() {
       setBusy(false);
     }
   }
+
+  const rangeInvalid =
+    mode === "range" && (!periodStart || !periodEnd || periodStart > periodEnd);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -78,28 +89,89 @@ export default function UploadPage() {
           </p>
         </div>
 
+        {/* 기간 모드 선택 */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            기준일자{" "}
-            <span className="text-xs font-normal text-slate-400">
-              (파일명에 날짜가 없을 때만 사용)
-            </span>
-          </label>
-          <input
-            type="date"
-            value={reportDate}
-            onChange={(e) => setReportDate(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
+          <div className="mb-2 inline-flex rounded-lg bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setMode("single")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                mode === "single"
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500"
+              }`}
+            >
+              단일 일자
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("range")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                mode === "range"
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500"
+              }`}
+            >
+              기간
+            </button>
+          </div>
+
+          {mode === "single" ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                기준일자{" "}
+                <span className="text-xs font-normal text-slate-400">
+                  (비우면 파일명의 날짜 자동 인식)
+                </span>
+              </label>
+              <input
+                type="date"
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  시작일
+                </label>
+                <input
+                  type="date"
+                  value={periodStart}
+                  onChange={(e) => setPeriodStart(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <span className="pb-2.5 text-slate-400">~</span>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  종료일
+                </label>
+                <input
+                  type="date"
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={!file || busy}
+          disabled={!file || busy || rangeInvalid}
           className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {busy ? "업로드 중…" : "업로드"}
         </button>
+        {rangeInvalid && (
+          <p className="text-xs text-red-500">
+            시작일과 종료일을 올바르게 입력하세요.
+          </p>
+        )}
       </form>
 
       {result && (
@@ -115,10 +187,11 @@ export default function UploadPage() {
               <div className="text-base font-semibold">
                 ✅ {result.inserted}건 저장 완료
               </div>
-              {result.dates && (
+              {result.period && (
                 <div className="mt-1 text-xs text-emerald-700">
-                  기간: {result.dates[0]} ~{" "}
-                  {result.dates[result.dates.length - 1]}
+                  기간: {result.period.start}
+                  {result.period.start !== result.period.end &&
+                    ` ~ ${result.period.end}`}
                 </div>
               )}
 

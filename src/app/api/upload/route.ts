@@ -47,15 +47,42 @@ export async function POST(req: Request) {
     );
   }
 
-  // 날짜: 파일에 명시된 일자 > 파일명에서 추출 > 사용자가 지정한 기준일
-  const fallbackDate =
-    dateFromFileName(file.name) ??
-    (/^\d{4}-\d{2}-\d{2}$/.test(fallbackDateRaw) ? fallbackDateRaw : null);
+  // 기간 결정: 폼의 기간(start~end) > 단일 일자(reportDate) > 파일명 날짜
+  const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const psRaw = String(form.get("periodStart") ?? "");
+  const peRaw = String(form.get("periodEnd") ?? "");
+  let periodStart: string | null = null;
+  let periodEnd: string | null = null;
+  if (isDate(psRaw) && isDate(peRaw)) {
+    periodStart = psRaw <= peRaw ? psRaw : peRaw;
+    periodEnd = psRaw <= peRaw ? peRaw : psRaw;
+  } else {
+    const single = isDate(fallbackDateRaw)
+      ? fallbackDateRaw
+      : dateFromFileName(file.name);
+    if (single) {
+      periodStart = single;
+      periodEnd = single;
+    }
+  }
+
+  if (!periodStart || !periodEnd) {
+    return NextResponse.json(
+      {
+        error:
+          "기간(또는 일자)을 확인할 수 없습니다. 파일명에 날짜가 없으면 업로드 폼에서 기간/일자를 지정하세요.",
+        detectedColumns: parsed.detectedColumns,
+      },
+      { status: 422 },
+    );
+  }
 
   // 분류된 행만 저장 (미분류는 건너뜀 → 응답에 목록 반환)
   const classified = parsed.rows.filter((r) => r.category);
   const records = classified.map((r) => ({
-    report_date: r.reportDate ?? fallbackDate,
+    report_date: periodEnd,
+    period_start: periodStart,
+    period_end: periodEnd,
     category: r.category,
     campaign: r.campaign,
     ad_group: r.adGroup,
@@ -79,26 +106,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const missingDate = records.filter((r) => !r.report_date);
-  if (missingDate.length > 0) {
-    return NextResponse.json(
-      {
-        error:
-          "파일/파일명에서 날짜를 찾지 못했습니다. 업로드 폼에서 '기준일자'를 선택해 주세요.",
-        detectedColumns: parsed.detectedColumns,
-      },
-      { status: 422 },
-    );
-  }
-
   const supabase = createAdminClient();
-  const dates = [...new Set(records.map((r) => r.report_date as string))];
 
-  // 재업로드 멱등: 동일 일자(전체 카테고리) 기존 데이터 제거 후 재삽입
+  // 재업로드 멱등: 동일 기간 기존 데이터 제거 후 재삽입
   const { error: delErr } = await supabase
     .from("ad_metrics")
     .delete()
-    .in("report_date", dates);
+    .eq("period_start", periodStart)
+    .eq("period_end", periodEnd);
   if (delErr) {
     return NextResponse.json(
       { error: "기존 데이터 정리 실패: " + delErr.message },
@@ -107,15 +122,14 @@ export async function POST(req: Request) {
   }
 
   // 업로드 배치 기록
-  const sortedDates = [...dates].sort();
   const { data: uploadRow, error: upErr } = await supabase
     .from("uploads")
     .insert({
       category: "all",
       file_name: file.name,
       row_count: records.length,
-      period_start: sortedDates[0],
-      period_end: sortedDates[sortedDates.length - 1],
+      period_start: periodStart,
+      period_end: periodEnd,
     })
     .select("id")
     .single();
@@ -138,7 +152,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     inserted: records.length,
-    dates: sortedDates,
+    period: { start: periodStart, end: periodEnd },
     categoryCounts: parsed.categoryCounts,
     unclassifiedCount: parsed.unclassified.length,
     unclassified: parsed.unclassified.slice(0, 20),

@@ -1,37 +1,31 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isCategorySlug } from "@/lib/categories";
 
 export const runtime = "nodejs";
 
-/** 특정 월의 카테고리별 예산 조회 */
-export async function GET(req: Request) {
+const DEFAULT_DAILY_BUDGET = 40000;
+
+/** 일 예산 조회 */
+export async function GET() {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.SUPABASE_SERVICE_ROLE_KEY
   ) {
-    return NextResponse.json({ budgets: {} });
-  }
-  const month = new URL(req.url).searchParams.get("month") ?? "";
-  if (!/^\d{4}-\d{2}$/.test(month)) {
-    return NextResponse.json({ error: "month 형식 오류" }, { status: 400 });
+    return NextResponse.json({ dailyBudget: DEFAULT_DAILY_BUDGET });
   }
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("budgets")
-    .select("category,amount")
-    .eq("month", month);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  const budgets: Record<string, number> = {};
-  for (const b of (data ?? []) as { category: string; amount: number }[]) {
-    budgets[b.category] = Number(b.amount) || 0;
-  }
-  return NextResponse.json({ budgets });
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "daily_budget")
+    .maybeSingle();
+  const n = data ? Number(data.value) : NaN;
+  return NextResponse.json({
+    dailyBudget: Number.isFinite(n) ? n : DEFAULT_DAILY_BUDGET,
+  });
 }
 
-/** 카테고리별 월 예산 저장 (upsert) */
+/** 일 예산 저장 */
 export async function POST(req: Request) {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -43,38 +37,28 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { month?: string; budgets?: Record<string, number> };
+  let body: { dailyBudget?: number };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "잘못된 요청 본문" }, { status: 400 });
   }
 
-  const month = String(body.month ?? "");
-  if (!/^\d{4}-\d{2}$/.test(month)) {
+  const amount = Number(body.dailyBudget);
+  if (!Number.isFinite(amount) || amount < 0) {
     return NextResponse.json(
-      { error: "month 형식은 YYYY-MM 이어야 합니다." },
+      { error: "일 예산은 0 이상의 숫자여야 합니다." },
       { status: 400 },
     );
   }
 
-  const rows = Object.entries(body.budgets ?? {})
-    .filter(([slug]) => isCategorySlug(slug))
-    .map(([category, amount]) => ({
-      category,
-      month,
-      amount: Number(amount) || 0,
-      updated_at: new Date().toISOString(),
-    }));
-
-  if (rows.length === 0) {
-    return NextResponse.json({ error: "저장할 예산이 없습니다." }, { status: 400 });
-  }
-
   const supabase = createAdminClient();
   const { error } = await supabase
-    .from("budgets")
-    .upsert(rows, { onConflict: "category,month" });
+    .from("settings")
+    .upsert(
+      { key: "daily_budget", value: String(amount), updated_at: new Date().toISOString() },
+      { onConflict: "key" },
+    );
   if (error) {
     return NextResponse.json(
       { error: "예산 저장 실패: " + error.message },
@@ -82,5 +66,5 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, saved: rows.length, month });
+  return NextResponse.json({ ok: true, dailyBudget: amount });
 }

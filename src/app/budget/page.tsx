@@ -2,51 +2,30 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CATEGORIES } from "@/lib/categories";
 import { fmtWon } from "@/lib/metrics";
 
-function thisMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 export default function BudgetPage() {
-  const [month, setMonth] = useState(thisMonth());
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [amount, setAmount] = useState("40000");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // 선택 월의 기존 예산 로드
   useEffect(() => {
-    setMsg(null);
-    fetch(`/api/budget?month=${month}`)
+    fetch("/api/budget")
       .then((r) => r.json())
-      .then((d: { budgets?: Record<string, number> }) => {
-        const next: Record<string, string> = {};
-        for (const c of CATEGORIES) {
-          const v = d.budgets?.[c.slug];
-          next[c.slug] = v ? String(v) : "";
-        }
-        setAmounts(next);
+      .then((d: { dailyBudget?: number }) => {
+        if (d.dailyBudget != null) setAmount(String(d.dailyBudget));
       })
       .catch(() => {});
-  }, [month]);
-
-  const total = CATEGORIES.reduce(
-    (s, c) => s + (Number(amounts[c.slug]) || 0),
-    0,
-  );
+  }, []);
 
   async function save() {
     setBusy(true);
     setMsg(null);
-    const budgets: Record<string, number> = {};
-    for (const c of CATEGORIES) budgets[c.slug] = Number(amounts[c.slug]) || 0;
     try {
       const res = await fetch("/api/budget", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month, budgets }),
+        body: JSON.stringify({ dailyBudget: Number(amount) || 0 }),
       });
       const d = await res.json();
       setMsg(res.ok ? "✅ 저장되었습니다." : `⚠️ ${d.error}`);
@@ -63,7 +42,8 @@ export default function BudgetPage() {
         <div>
           <h1 className="text-2xl font-bold">예산 설정</h1>
           <p className="text-sm text-slate-500">
-            카테고리별 월 예산을 입력하면 대시보드에서 집행률이 표시됩니다.
+            하루 예산을 입력하면 대시보드에서 기간 일수 × 일예산으로 집행률이
+            계산됩니다.
           </p>
         </div>
         <Link
@@ -77,45 +57,22 @@ export default function BudgetPage() {
       <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            대상 월
+            하루 예산
           </label>
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </div>
-
-        <div className="divide-y divide-slate-100">
-          {CATEGORIES.map((c) => (
-            <div key={c.slug} className="flex items-center justify-between py-2.5">
-              <span className="text-sm font-medium text-slate-700">
-                {c.label}
-              </span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={amounts[c.slug] ?? ""}
-                  onChange={(e) =>
-                    setAmounts((a) => ({ ...a, [c.slug]: e.target.value }))
-                  }
-                  placeholder="0"
-                  className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm tabular-nums"
-                />
-                <span className="text-sm text-slate-400">원</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-slate-200 pt-3">
-          <span className="text-sm font-semibold text-slate-600">합계</span>
-          <span className="text-lg font-bold text-slate-900">
-            {fmtWon(total)}
-          </span>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-48 rounded-lg border border-slate-300 px-3 py-2 text-right text-lg font-semibold tabular-nums"
+            />
+            <span className="text-sm text-slate-400">원 / 일</span>
+          </div>
+          <p className="mt-2 text-xs text-slate-400">
+            현재 설정: <b>{fmtWon(Number(amount) || 0)}</b> /일
+          </p>
         </div>
 
         <button
