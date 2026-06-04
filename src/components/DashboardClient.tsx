@@ -303,6 +303,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             변화 분석
           </button>
           <Link
+            href="/manage"
+            className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+          >
+            데이터 관리
+          </Link>
+          <Link
             href="/upload"
             className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
           >
