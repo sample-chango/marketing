@@ -1,66 +1,91 @@
-import type { DerivedMetrics } from "./metrics";
-import { fmtInt, fmtWon, fmtPct, fmtRoas } from "./metrics";
+import {
+  deriveMetrics,
+  sumTotals,
+  fmtInt,
+  fmtWon,
+  fmtPct,
+  fmtRoas,
+  type DerivedMetrics,
+} from "./metrics";
 
 /**
- * 마케팅 퍼널(AARRR) — 유지(Retention)·추천(Referral) 단계는 제외.
- * 각 단계는 해당 지표들로 표현됩니다.
+ * 마케팅 퍼널(AARRR, 유지·추천 제외) — 이미지 기준 4단계.
+ * 각 단계는 퍼널 박스에 보이는 지표(metrics)와,
+ * 단계 클릭 시 상세테이블에 표시할 컬럼(columns)을 가집니다.
  */
-export interface FunnelMetric {
-  key: keyof DerivedMetrics;
+export interface MetricDef {
   label: string;
-  format: (m: DerivedMetrics) => string;
-  hint?: string;
+  value: (m: DerivedMetrics) => string;
+  align?: "left" | "right";
 }
 
 export interface FunnelStage {
-  key: string;
+  key: "awareness" | "acquisition" | "conversion" | "revenue";
   label: string; // 한글 단계명
   english: string;
-  description: string;
-  metrics: FunnelMetric[];
+  metrics: MetricDef[]; // 퍼널 박스 표시
+  columns: MetricDef[]; // 상세테이블 표시
 }
 
 export const FUNNEL_STAGES: FunnelStage[] = [
   {
     key: "awareness",
-    label: "인지",
+    label: "인식",
     english: "Awareness",
-    description: "광고가 얼마나 많이 노출되었는가",
-    metrics: [
-      {
-        key: "impressions",
-        label: "노출수",
-        format: (m) => fmtInt(m.impressions),
-      },
-    ],
+    metrics: [{ label: "노출수", value: (m) => fmtInt(m.impressions) }],
+    columns: [{ label: "노출수", value: (m) => fmtInt(m.impressions) }],
   },
   {
     key: "acquisition",
-    label: "획득",
+    label: "유입",
     english: "Acquisition",
-    description: "노출에서 클릭으로 얼마나 유입되었는가",
     metrics: [
-      { key: "ctr", label: "CTR (클릭률)", format: (m) => fmtPct(m.ctr) },
-      { key: "cpc", label: "CPC (클릭당비용)", format: (m) => fmtWon(m.cpc) },
+      { label: "클릭수", value: (m) => fmtInt(m.clicks) },
+      { label: "CTR", value: (m) => fmtPct(m.ctr) },
+      { label: "CPC", value: (m) => fmtWon(m.cpc) },
+    ],
+    columns: [
+      { label: "클릭수", value: (m) => fmtInt(m.clicks) },
+      { label: "CTR", value: (m) => fmtPct(m.ctr) },
+      { label: "CPC", value: (m) => fmtWon(m.cpc) },
     ],
   },
   {
-    key: "activation",
-    label: "활성화",
-    english: "Activation",
-    description: "클릭이 얼마나 전환으로 이어졌는가",
+    key: "conversion",
+    label: "전환",
+    english: "Conversion",
     metrics: [
-      { key: "cvr", label: "CVR (전환율)", format: (m) => fmtPct(m.cvr) },
-      { key: "cpa", label: "CPA (전환당비용)", format: (m) => fmtWon(m.cpa) },
+      { label: "구매", value: (m) => fmtInt(m.conversions) },
+      { label: "CVR", value: (m) => fmtPct(m.cvr) },
+      { label: "CPA", value: (m) => fmtWon(m.cpa) },
+    ],
+    columns: [
+      { label: "구매", value: (m) => fmtInt(m.conversions) },
+      { label: "CVR", value: (m) => fmtPct(m.cvr) },
+      { label: "CPA", value: (m) => fmtWon(m.cpa) },
     ],
   },
   {
     key: "revenue",
-    label: "수익",
+    label: "성과",
     english: "Revenue",
-    description: "광고비 대비 매출 효율",
-    metrics: [
-      { key: "roas", label: "ROAS (광고수익률)", format: (m) => fmtRoas(m.roas) },
+    metrics: [{ label: "ROAS", value: (m) => fmtRoas(m.roas) }],
+    columns: [
+      { label: "매출", value: (m) => fmtWon(m.conversionValue) },
+      { label: "광고비", value: (m) => fmtWon(m.cost) },
+      { label: "ROAS", value: (m) => fmtRoas(m.roas) },
     ],
   },
 ];
+
+/** 단일 행을 파생지표로 변환 (상세테이블 셀 계산용) */
+export function deriveRow(row: {
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionValue: number;
+  qualityScore: number | null;
+}): DerivedMetrics {
+  return deriveMetrics(sumTotals([row]));
+}

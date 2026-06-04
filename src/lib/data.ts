@@ -85,9 +85,11 @@ export interface DashboardData {
   hasData: boolean;
   overall: DerivedMetrics;
   byCategory: CategorySummary[];
+  rows: MetricRow[];
+  period: { start: string; end: string } | null;
 }
 
-/** 종합 대시보드 데이터 (전체 + 카테고리별) */
+/** 종합 대시보드 데이터 (전체 + 카테고리별 + 원시행 + 기간) */
 export async function getDashboardData(): Promise<DashboardData> {
   const configured = isSupabaseConfigured();
   const rows = await fetchRows();
@@ -101,11 +103,19 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   });
 
+  const dates = rows.map((r) => r.report_date).filter(Boolean).sort();
+  const period =
+    dates.length > 0
+      ? { start: dates[0], end: dates[dates.length - 1] }
+      : null;
+
   return {
     configured,
     hasData: rows.length > 0,
     overall: deriveMetrics(sumTotals(rows)),
     byCategory,
+    rows,
+    period,
   };
 }
 

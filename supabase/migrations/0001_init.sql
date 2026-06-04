@@ -20,7 +20,7 @@ create table if not exists public.ad_metrics (
   report_date       date not null,
   category          text not null
                       check (category in
-                        ('wallpaper','film','flooring','bestpack','signature')),
+                        ('wallpaper','flooring','jangpan','film','bestpack','signature')),
   campaign          text,
   ad_group          text,
   keyword           text,
