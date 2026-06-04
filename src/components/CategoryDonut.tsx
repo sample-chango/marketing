@@ -8,6 +8,36 @@ export interface DonutSlice {
   color: string;
 }
 
+/** 링 안쪽에 퍼센트를 그려 잘리지 않게 하는 라벨 렌더러 */
+function renderInsideLabel(props: unknown) {
+  const p = props as {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percent: number;
+  };
+  if (p.percent < 0.05) return null;
+  const r = (p.innerRadius + p.outerRadius) / 2;
+  const rad = (-p.midAngle * Math.PI) / 180;
+  const x = p.cx + r * Math.cos(rad);
+  const y = p.cy + r * Math.sin(rad);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#fff"
+      fontSize={11}
+      fontWeight={600}
+      textAnchor="middle"
+      dominantBaseline="central"
+    >
+      {Math.round(p.percent * 100)}%
+    </text>
+  );
+}
+
 /** 카테고리 비중 도넛 차트 + 범례 */
 export function CategoryDonut({ slices }: { slices: DonutSlice[] }) {
   const total = slices.reduce((s, d) => s + d.value, 0);
@@ -15,7 +45,7 @@ export function CategoryDonut({ slices }: { slices: DonutSlice[] }) {
 
   if (total <= 0) {
     return (
-      <div className="flex h-[200px] items-center justify-center text-sm text-slate-300">
+      <div className="flex h-[180px] items-center justify-center text-sm text-slate-300">
         데이터 없음
       </div>
     );
@@ -23,23 +53,20 @@ export function CategoryDonut({ slices }: { slices: DonutSlice[] }) {
 
   return (
     <div>
-      <div className="h-[200px] w-full">
+      <div className="h-[180px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+          <PieChart margin={{ top: 6, bottom: 6, left: 6, right: 6 }}>
             <Pie
               data={data}
               dataKey="value"
               nameKey="label"
               cx="50%"
               cy="50%"
-              innerRadius={50}
-              outerRadius={85}
+              innerRadius={42}
+              outerRadius={68}
               paddingAngle={1}
               labelLine={false}
-              label={(e) => {
-                const pct = (e as { percent?: number }).percent ?? 0;
-                return pct >= 0.03 ? `${Math.round(pct * 100)}%` : "";
-              }}
+              label={renderInsideLabel}
               stroke="#fff"
               strokeWidth={2}
               isAnimationActive={false}
@@ -51,7 +78,7 @@ export function CategoryDonut({ slices }: { slices: DonutSlice[] }) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <ul className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+      <ul className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-[11px] text-slate-500">
         {slices.map((d) => (
           <li key={d.label} className="flex items-center gap-1">
             <span
