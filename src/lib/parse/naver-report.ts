@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
+import { classifyCategory, type CategorySlug } from "@/lib/categories";
 
 /**
  * 네이버 검색광고 보고서(다운로드) 파서.
@@ -11,6 +12,7 @@ import Papa from "papaparse";
 
 export interface ParsedRow {
   reportDate: string | null; // ISO yyyy-mm-dd (없으면 null → 업로드 시 기본일자 사용)
+  category: CategorySlug | null; // 소재 내용으로 자동 분류 (null = 미분류)
   campaign: string | null;
   adGroup: string | null;
   keyword: string | null;
@@ -26,6 +28,10 @@ export interface ParseResult {
   rows: ParsedRow[];
   detectedColumns: Partial<Record<CanonicalField, string>>;
   warnings: string[];
+  /** 카테고리별 분류 건수 */
+  categoryCounts: Record<string, number>;
+  /** 미분류 상품명 목록 */
+  unclassified: string[];
 }
 
 type CanonicalField =
@@ -187,15 +193,20 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
 
     const campaign = (get(cells, "campaign") ?? "").toString().trim() || null;
     const adGroup = (get(cells, "adGroup") ?? "").toString().trim() || null;
-    let keyword = (get(cells, "keyword") ?? "").toString().trim() || null;
+    const rawKeyword = (get(cells, "keyword") ?? "").toString().trim() || null;
 
     // 합계/총계/요약("소재 46개 결과") 행 스킵
-    const firstText = [campaign, adGroup, keyword].find(Boolean) ?? "";
+    const firstText = [campaign, adGroup, rawKeyword].find(Boolean) ?? "";
     if (/^(합계|총계|소계|total)/i.test(firstText) || /\d+\s*개\s*결과/.test(firstText))
       continue;
 
+    // 카테고리 자동 분류 (원본 소재 문자열 = 상품명 + 카테고리경로 기반)
+    const category = classifyCategory(
+      `${rawKeyword ?? ""} ${campaign ?? ""} ${adGroup ?? ""}`,
+    );
+
     // 소재(상품) 피드 형식 "상품명,가격,카테고리경로,URL,..." → 상품명만 추출
-    keyword = cleanCreativeName(keyword);
+    const keyword = cleanCreativeName(rawKeyword);
 
     const impressions = Math.round(toNumber(get(cells, "impressions")));
     const clicks = Math.round(toNumber(get(cells, "clicks")));
@@ -212,6 +223,7 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
 
     rows.push({
       reportDate: toIsoDate(get(cells, "reportDate")),
+      category,
       campaign,
       adGroup,
       keyword,
@@ -224,7 +236,18 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
     });
   }
 
-  return { rows, detectedColumns: detected, warnings };
+  // 분류 통계
+  const categoryCounts: Record<string, number> = {};
+  const unclassified: string[] = [];
+  for (const row of rows) {
+    if (row.category) {
+      categoryCounts[row.category] = (categoryCounts[row.category] ?? 0) + 1;
+    } else {
+      unclassified.push(row.keyword ?? "(이름없음)");
+    }
+  }
+
+  return { rows, detectedColumns: detected, warnings, categoryCounts, unclassified };
 }
 
 /** 엑셀(.xlsx) 버퍼 파싱 */
@@ -232,7 +255,14 @@ async function parseXlsx(buffer: Buffer): Promise<ParseResult> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as ArrayBuffer);
   const ws = wb.worksheets[0];
-  if (!ws) return { rows: [], detectedColumns: {}, warnings: ["워크시트가 없습니다."] };
+  if (!ws)
+    return {
+      rows: [],
+      detectedColumns: {},
+      warnings: ["워크시트가 없습니다."],
+      categoryCounts: {},
+      unclassified: [],
+    };
 
   const matrix: string[][] = [];
   ws.eachRow({ includeEmpty: true }, (row) => {
