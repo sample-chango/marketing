@@ -18,15 +18,25 @@ import {
   type DerivedMetrics,
 } from "@/lib/metrics";
 import { CategoryDonut } from "@/components/CategoryDonut";
+import { TrendChart } from "@/components/TrendChart";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
 type Filter = CategorySlug | "all";
 type CompareMode = "prev" | "day" | "week" | "month";
+type MetricKey =
+  | "impressions"
+  | "clicks"
+  | "cost"
+  | "conversions"
+  | "conversionValue"
+  | "roas";
 
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
+const mmdd = (iso: string) => iso.slice(5).replace("-", ".");
+const rowDate = (r: MetricRow) => r.period_end;
 
 const COMPARE_LABEL: Record<CompareMode, string> = {
-  prev: "직전 업로드",
+  prev: "직전 기간",
   day: "전날",
   week: "전주",
   month: "전달",
@@ -42,7 +52,21 @@ const PRIMARY: Record<
   revenue: { label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon },
 };
 
-/** 변화 분석 표 컬럼 */
+const TREND_METRICS: {
+  key: MetricKey;
+  label: string;
+  pick: (m: DerivedMetrics) => number;
+  fmt: (n: number) => string;
+  color: string;
+}[] = [
+  { key: "impressions", label: "노출수", pick: (m) => m.impressions, fmt: fmtInt, color: "#3b82f6" },
+  { key: "clicks", label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt, color: "#10b981" },
+  { key: "cost", label: "광고비", pick: (m) => m.cost, fmt: fmtWon, color: "#f59e0b" },
+  { key: "conversions", label: "전환", pick: (m) => m.conversions, fmt: fmtInt, color: "#8b5cf6" },
+  { key: "conversionValue", label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, color: "#ec4899" },
+  { key: "roas", label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, color: "#0ea5e9" },
+];
+
 const CHANGE_COLS: {
   label: string;
   pick: (m: DerivedMetrics) => number;
@@ -71,6 +95,8 @@ const addMonths = (iso: string, n: number) => {
   d.setMonth(d.getMonth() + n);
   return toIso(d);
 };
+const daysInclusive = (start: string, end: string) =>
+  Math.max(1, Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1);
 
 const agg = (rs: MetricRow[]) => deriveMetrics(sumTotals(rs));
 const byCatOf = (rs: MetricRow[]) =>
@@ -79,11 +105,6 @@ const byCatOf = (rs: MetricRow[]) =>
     label: c.label,
     metrics: agg(rs.filter((r) => r.category === c.slug)),
   }));
-
-function periodDays(start: string, end: string): number {
-  const d = (Date.parse(end) - Date.parse(start)) / 86400000;
-  return Math.max(1, Math.round(d) + 1);
-}
 
 function Bar({ pct, color }: { pct: number; color: string }) {
   return (
@@ -96,7 +117,6 @@ function Bar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-/** 증감 뱃지 */
 function Delta({
   curr,
   prev,
@@ -118,7 +138,6 @@ function Delta({
   );
 }
 
-/** 카드 코너의 비교 뱃지 (클릭 시 이전값→현재값 토글) */
 function WoW({
   curr,
   prev,
@@ -160,47 +179,45 @@ function WoW({
 }
 
 export function DashboardClient({ data }: { data: DashboardData }) {
-  const periods = data.periods;
-  const lastKey = periods[periods.length - 1]?.key ?? "";
+  const allDates = [...new Set(data.rows.map(rowDate))].sort();
+  const earliest = allDates[0] ?? "";
+  const latest = allDates[allDates.length - 1] ?? "";
 
-  const [selectedKey, setSelectedKey] = useState(lastKey);
+  const [rangeStart, setRangeStart] = useState(earliest);
+  const [rangeEnd, setRangeEnd] = useState(latest);
   const [compareMode, setCompareMode] = useState<CompareMode>("prev");
   const [cat, setCat] = useState<Filter>("all");
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
+  const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
   const [showChange, setShowChange] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
 
-  // 선택 기간 (없으면 최신)
-  const selPeriod =
-    periods.find((p) => p.key === selectedKey) ?? periods[periods.length - 1];
+  // 유효 범위 (데이터 범위로 보정)
+  let rs = rangeStart && allDates.includes(rangeStart) ? rangeStart : earliest;
+  let re = rangeEnd && allDates.includes(rangeEnd) ? rangeEnd : latest;
+  if (rs && re && rs > re) [rs, re] = [re, rs];
 
-  // 기간별 그룹
-  const groups = new Map<string, MetricRow[]>();
-  for (const r of data.rows) {
-    const k = `${r.period_start}~${r.period_end}`;
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k)!.push(r);
+  const inRange = (r: MetricRow) => {
+    const d = rowDate(r);
+    return d >= rs && d <= re;
+  };
+  const currentRows = data.rows.filter(inRange);
+
+  // 비교 기준 기간 (범위를 통째로 뒤로 이동)
+  const rangeLen = rs && re ? daysInclusive(rs, re) : 1;
+  let baseStart: string, baseEnd: string;
+  if (compareMode === "month") {
+    baseStart = addMonths(rs, -1);
+    baseEnd = addMonths(re, -1);
+  } else {
+    const off = compareMode === "day" ? 1 : compareMode === "week" ? 7 : rangeLen;
+    baseStart = addDays(rs, -off);
+    baseEnd = addDays(re, -off);
   }
-
-  const currentRows = selPeriod ? groups.get(selPeriod.key) ?? [] : [];
-
-  // 비교 기준 기간 찾기
-  let baseKey: string | null = null;
-  if (selPeriod) {
-    if (compareMode === "prev") {
-      const idx = periods.findIndex((p) => p.key === selPeriod.key);
-      baseKey = idx > 0 ? periods[idx - 1].key : null;
-    } else {
-      const targetEnd =
-        compareMode === "day"
-          ? addDays(selPeriod.end, -1)
-          : compareMode === "week"
-            ? addDays(selPeriod.end, -7)
-            : addMonths(selPeriod.end, -1);
-      baseKey = periods.find((p) => p.end === targetEnd)?.key ?? null;
-    }
-  }
-  const baseRows = baseKey ? groups.get(baseKey) ?? [] : [];
+  const baseRows = data.rows.filter((r) => {
+    const d = rowDate(r);
+    return d >= baseStart && d <= baseEnd;
+  });
 
   const o = agg(currentRows);
   const base = baseRows.length ? agg(baseRows) : null;
@@ -208,9 +225,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const byCategoryBase = baseRows.length ? byCatOf(baseRows) : null;
 
   const current: DerivedMetrics =
-    cat === "all"
-      ? o
-      : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
+    cat === "all" ? o : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
   const rows =
     cat === "all" ? currentRows : currentRows.filter((r) => r.category === cat);
 
@@ -243,14 +258,22 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       color: CATEGORY_COLORS[c.slug],
     }));
 
-  const days = selPeriod ? periodDays(selPeriod.start, selPeriod.end) : 1;
+  // 기간 내 일자별 추이 (선택 카테고리 기준)
+  const trendCfg = TREND_METRICS.find((t) => t.key === trendKey)!;
+  const datesInRange = allDates.filter((d) => d >= rs && d <= re);
+  const trendData = datesInRange.map((d) => ({
+    label: mmdd(d),
+    value: trendCfg.pick(agg(rows.filter((r) => rowDate(r) === d))),
+  }));
+
+  const days = rs && re ? daysInclusive(rs, re) : 0;
   const effBudget = data.dailyBudget * days;
   const execRate = effBudget > 0 ? o.cost / effBudget : null;
 
-  const periodText = selPeriod
-    ? selPeriod.start === selPeriod.end
-      ? fmtDate(selPeriod.start)
-      : `${fmtDate(selPeriod.start)} - ${fmtDate(selPeriod.end)}`
+  const periodText = rs
+    ? rs === re
+      ? fmtDate(rs)
+      : `${fmtDate(rs)} - ${fmtDate(re)}`
     : "기간 없음";
 
   const baseMetric = (slug: string, pick: (m: DerivedMetrics) => number) => {
@@ -265,29 +288,19 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">네이버 광고 애널라이저</h1>
         <div className="flex flex-wrap items-center gap-2">
-          {/* 날짜/기간 선택 */}
-          <select
-            value={selPeriod?.key ?? ""}
-            onChange={(e) => setSelectedKey(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
-          >
-            {periods.length === 0 && <option value="">데이터 없음</option>}
-            {[...periods].reverse().map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.start === p.end
-                  ? fmtDate(p.end)
-                  : `${fmtDate(p.start)}~${fmtDate(p.end)}`}
-              </option>
-            ))}
-          </select>
-          {/* 비교 기준 */}
+          {/* 기간 범위 선택 */}
+          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
+            <DateSelect dates={allDates} value={rs} onChange={setRangeStart} />
+            <span className="text-slate-400">~</span>
+            <DateSelect dates={allDates} value={re} onChange={setRangeEnd} />
+          </div>
           <select
             value={compareMode}
             onChange={(e) => setCompareMode(e.target.value as CompareMode)}
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
             title="비교 기준"
           >
-            <option value="prev">직전 업로드 대비</option>
+            <option value="prev">직전 기간 대비</option>
             <option value="day">전날 대비</option>
             <option value="week">전주 대비</option>
             <option value="month">전달 대비</option>
@@ -327,21 +340,54 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </Banner>
       )}
 
+      {/* 기간 내 추이 */}
+      {data.hasData && (
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold text-slate-800">
+              기간 내 추이{" "}
+              <span className="text-sm font-normal text-slate-400">
+                {periodText} · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
+              </span>
+            </h3>
+            <div className="flex flex-wrap gap-1">
+              {TREND_METRICS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTrendKey(t.key)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    trendKey === t.key
+                      ? "bg-slate-700 text-white"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {datesInRange.length <= 1 ? (
+            <p className="py-10 text-center text-sm text-slate-400">
+              추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {datesInRange.length}일)
+            </p>
+          ) : (
+            <TrendChart data={trendData} color={trendCfg.color} valueFmt={trendCfg.fmt} />
+          )}
+        </div>
+      )}
+
       {/* 변화 분석 표 */}
       {showChange && (
         <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-800">
-              변화 분석{" "}
-              <span className="text-sm font-normal text-slate-400">
-                {periodText} vs {COMPARE_LABEL[compareMode]}
-              </span>
-            </h3>
-          </div>
+          <h3 className="mb-3 font-semibold text-slate-800">
+            변화 분석{" "}
+            <span className="text-sm font-normal text-slate-400">
+              {periodText} vs {COMPARE_LABEL[compareMode]}
+            </span>
+          </h3>
           {!base ? (
             <p className="py-6 text-center text-sm text-slate-400">
-              비교할 {COMPARE_LABEL[compareMode]} 데이터가 없습니다. 다른 날짜의
-              데이터를 업로드하면 변화가 표시됩니다.
+              비교할 {COMPARE_LABEL[compareMode]} 데이터가 없습니다.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -357,12 +403,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <ChangeRow
-                    label="전체"
-                    bold
-                    metrics={o}
-                    baseMetrics={base}
-                  />
+                  <ChangeRow label="전체" bold metrics={o} baseMetrics={base} />
                   {byCategory.map((c) => (
                     <ChangeRow
                       key={c.slug}
@@ -474,14 +515,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
           wow={
-            <WoW
-              curr={o.conversions}
-              prev={base?.conversions ?? null}
-              fmt={fmtInt}
-              mode={compareMode}
-              showDetail={showChange}
-              onClick={() => setShowChange((v) => !v)}
-            />
+            <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} mode={compareMode} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
           }
           slices={slicesOf((m) => m.conversions)}
         />
@@ -489,14 +523,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총매출액"
           value={fmtWon(o.conversionValue)}
           wow={
-            <WoW
-              curr={o.conversionValue}
-              prev={base?.conversionValue ?? null}
-              fmt={fmtWon}
-              mode={compareMode}
-              showDetail={showChange}
-              onClick={() => setShowChange((v) => !v)}
-            />
+            <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} mode={compareMode} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
           }
           slices={slicesOf((m) => m.conversionValue)}
         />
@@ -504,15 +531,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총광고비"
           value={fmtWon(o.cost)}
           wow={
-            <WoW
-              curr={o.cost}
-              prev={base?.cost ?? null}
-              fmt={fmtWon}
-              mode={compareMode}
-              goodWhenUp={false}
-              showDetail={showChange}
-              onClick={() => setShowChange((v) => !v)}
-            />
+            <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} mode={compareMode} goodWhenUp={false} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
           }
           slices={slicesOf((m) => m.cost)}
         />
@@ -647,6 +666,31 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 }
 
 /* ---------- 하위 컴포넌트 ---------- */
+
+function DateSelect({
+  dates,
+  value,
+  onChange,
+}: {
+  dates: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none"
+    >
+      {dates.length === 0 && <option value="">-</option>}
+      {dates.map((d) => (
+        <option key={d} value={d}>
+          {fmtDate(d)}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function ChangeRow({
   label,
