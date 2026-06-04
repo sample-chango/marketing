@@ -8,7 +8,7 @@ import {
   type CategorySlug,
 } from "@/lib/categories";
 import { FUNNEL_STAGES, deriveRow, type FunnelStage } from "@/lib/funnel";
-import { fmtInt, fmtWon, fmtRoas, type DerivedMetrics } from "@/lib/metrics";
+import { fmtInt, fmtWon, fmtPct, fmtRoas, type DerivedMetrics } from "@/lib/metrics";
 import { CategoryDonut } from "@/components/CategoryDonut";
 import type { DashboardData } from "@/lib/data";
 
@@ -16,17 +16,42 @@ type Filter = CategorySlug | "all";
 
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
 
-const SORT_KEY: Record<FunnelStage["key"], (r: { impressions: number; clicks: number; conversions: number; conversionValue: number }) => number> = {
+const SORT_KEY: Record<
+  FunnelStage["key"],
+  (r: { impressions: number; clicks: number; conversions: number; conversionValue: number }) => number
+> = {
   awareness: (r) => r.impressions,
   acquisition: (r) => r.clicks,
   conversion: (r) => r.conversions,
   revenue: (r) => r.conversionValue,
 };
 
-function WoW() {
+/** 전주대비(직전 일자 대비) 증감 표시 */
+function WoW({
+  curr,
+  prev,
+  goodWhenUp = true,
+}: {
+  curr: number;
+  prev: number | null;
+  goodWhenUp?: boolean;
+}) {
+  if (prev == null || prev <= 0) {
+    return (
+      <span className="text-[11px] font-normal text-slate-400">
+        전주대비 <span className="text-slate-300">—</span>
+      </span>
+    );
+  }
+  const delta = (curr - prev) / prev;
+  const up = curr >= prev;
+  const good = up === goodWhenUp;
   return (
     <span className="text-[11px] font-normal text-slate-400">
-      전주대비 <span className="text-slate-300">—</span>
+      전주대비{" "}
+      <span className={good ? "text-emerald-600" : "text-red-500"}>
+        {up ? "▲" : "▼"} {Math.abs(delta * 100).toFixed(1)}%
+      </span>
     </span>
   );
 }
@@ -35,11 +60,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [cat, setCat] = useState<Filter>("all");
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
 
+  const o = data.overall;
+  const p = data.prevOverall;
+
+  // 퍼널·테이블은 선택 카테고리 기준
   const current: DerivedMetrics =
     cat === "all"
-      ? data.overall
-      : data.byCategory.find((c) => c.slug === cat)?.metrics ?? data.overall;
-
+      ? o
+      : data.byCategory.find((c) => c.slug === cat)?.metrics ?? o;
   const rows =
     cat === "all" ? data.rows : data.rows.filter((r) => r.category === cat);
 
@@ -56,18 +84,28 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     }));
 
   const periodText = data.period
-    ? `${fmtDate(data.period.start)} - ${fmtDate(data.period.end)}`
+    ? data.period.start === data.period.end
+      ? fmtDate(data.period.start)
+      : `${fmtDate(data.period.start)} - ${fmtDate(data.period.end)}`
     : "기간 없음";
+
+  const execRate = data.totalBudget > 0 ? o.cost / data.totalBudget : null;
 
   return (
     <div className="space-y-5">
       {/* 헤더 */}
-      <header className="flex items-center justify-between rounded-2xl bg-white p-6 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">네이버 광고 애널라이저</h1>
         <div className="flex items-center gap-3">
           <span className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600">
             {periodText}
           </span>
+          <Link
+            href="/budget"
+            className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+          >
+            예산 설정
+          </Link>
           <Link
             href="/upload"
             className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
@@ -78,9 +116,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       </header>
 
       {!data.configured && (
-        <Banner tone="amber">
-          Supabase 환경변수가 설정되지 않았습니다.
-        </Banner>
+        <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
       )}
       {data.configured && !data.hasData && (
         <Banner tone="blue">
@@ -89,38 +125,83 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </Banner>
       )}
 
-      {/* 상단 카드: ROAS / 예산 */}
+      {/* 상단 카드: ROAS / 예산 (전체 기준) */}
       <div className="grid gap-5 md:grid-cols-2">
-        <HeroCard label="ROAS" value={fmtRoas(current.roas)} wow />
-        <HeroCard
-          label="예산"
-          value={fmtWon(current.cost)}
-          caption="집행 광고비 기준"
-        />
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">ROAS</span>
+            <WoW curr={o.roas} prev={p?.roas ?? null} />
+          </div>
+          <div className="mt-2 text-4xl font-bold text-slate-900">
+            {fmtRoas(o.roas)}
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">예산</span>
+            <Link href="/budget" className="text-[11px] text-emerald-600 hover:underline">
+              설정
+            </Link>
+          </div>
+          {data.totalBudget > 0 ? (
+            <>
+              <div className="mt-2 text-4xl font-bold text-slate-900">
+                {fmtWon(data.totalBudget)}
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                집행 {fmtWon(o.cost)} · 집행률{" "}
+                <span
+                  className={
+                    execRate && execRate > 1
+                      ? "font-semibold text-red-500"
+                      : "font-semibold text-emerald-600"
+                  }
+                >
+                  {execRate != null ? fmtPct(execRate) : "-"}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 text-2xl font-bold text-slate-300">
+                미설정
+              </div>
+              <Link
+                href="/budget"
+                className="mt-1 inline-block text-xs text-emerald-600 hover:underline"
+              >
+                예산 입력하기 →
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* 도넛 카드 3개 */}
+      {/* 도넛 카드 3개 (전체 기준) */}
       <div className="grid gap-5 md:grid-cols-3">
         <DonutCard
           title="총 전환건수"
-          value={`${fmtInt(data.overall.conversions)}개`}
+          value={`${fmtInt(o.conversions)}개`}
+          wow={<WoW curr={o.conversions} prev={p?.conversions ?? null} />}
           slices={slicesOf((m) => m.conversions)}
         />
         <DonutCard
           title="총매출액"
-          value={fmtWon(data.overall.conversionValue)}
+          value={fmtWon(o.conversionValue)}
+          wow={<WoW curr={o.conversionValue} prev={p?.conversionValue ?? null} />}
           slices={slicesOf((m) => m.conversionValue)}
         />
         <DonutCard
           title="총광고비"
-          value={fmtWon(data.overall.cost)}
+          value={fmtWon(o.cost)}
+          wow={<WoW curr={o.cost} prev={p?.cost ?? null} goodWhenUp={false} />}
           slices={slicesOf((m) => m.cost)}
         />
       </div>
 
       {/* 카테고리 탭 + 퍼널 + 상세테이블 */}
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        {/* 탭 */}
         <div className="mb-5 flex flex-wrap gap-2">
           <Tab active={cat === "all"} onClick={() => setCat("all")}>
             전체
@@ -173,9 +254,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   </div>
                 </button>
                 {i < FUNNEL_STAGES.length - 1 && (
-                  <div className="flex items-center text-lg text-slate-300">
-                    ▶
-                  </div>
+                  <div className="flex items-center text-lg text-slate-300">▶</div>
                 )}
               </Fragment>
             );
@@ -187,7 +266,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           <h2 className="mb-3 text-lg font-semibold text-slate-800">
             상세테이블
             <span className="ml-2 text-sm font-normal text-slate-400">
-              {stage.label} · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
+              {stage.label} ·{" "}
+              {cat === "all"
+                ? "전체"
+                : CATEGORIES.find((c) => c.slug === cat)?.label}
             </span>
           </h2>
           <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -199,7 +281,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     <th className="px-3 py-2.5 text-left font-medium">카테고리</th>
                   )}
                   {stage.columns.map((col) => (
-                    <th key={col.label} className="px-3 py-2.5 text-right font-medium">
+                    <th
+                      key={col.label}
+                      className="px-3 py-2.5 text-right font-medium"
+                    >
                       {col.label}
                     </th>
                   ))}
@@ -251,36 +336,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
 /* ---------- 하위 컴포넌트 ---------- */
 
-function HeroCard({
-  label,
-  value,
-  wow,
-  caption,
-}: {
-  label: string;
-  value: string;
-  wow?: boolean;
-  caption?: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-500">{label}</span>
-        {wow && <WoW />}
-      </div>
-      <div className="mt-2 text-4xl font-bold text-slate-900">{value}</div>
-      {caption && <div className="mt-1 text-xs text-slate-400">{caption}</div>}
-    </div>
-  );
-}
-
 function DonutCard({
   title,
   value,
+  wow,
   slices,
 }: {
   title: string;
   value: string;
+  wow: React.ReactNode;
   slices: { label: string; value: number; color: string }[];
 }) {
   return (
@@ -290,7 +354,7 @@ function DonutCard({
           <div className="text-sm font-medium text-slate-500">{title}</div>
           <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
         </div>
-        <WoW />
+        {wow}
       </div>
       <div className="mt-3">
         <CategoryDonut slices={slices} />
