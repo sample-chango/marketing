@@ -67,6 +67,17 @@ const TREND_METRICS: {
   { key: "roas", label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, color: "#0ea5e9" },
 ];
 
+const PRODUCT_PALETTE = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#0ea5e9",
+  "#ef4444",
+  "#14b8a6",
+];
+
 const CHANGE_COLS: {
   label: string;
   pick: (m: DerivedMetrics) => number;
@@ -262,33 +273,73 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   // 기간 내 일자별 추이
   const trendCfg = TREND_METRICS.find((t) => t.key === trendKey)!;
   const datesInRange = allDates.filter((d) => d >= rs && d <= re);
-  // 전체 탭 + 카테고리별 모드 → 카테고리마다 라인, 그 외 → 단일 라인
+  const rowName = (r: MetricRow) =>
+    r.keyword ?? r.ad_group ?? r.campaign ?? "-";
+  const shortName = (s: string) => (s.length > 18 ? s.slice(0, 18) + "…" : s);
+
+  // 전체 탭 → 카테고리별 라인 / 특정 카테고리 탭 → 제품(상품)별 라인 / 그 외 → 단일
   const showCatLines = cat === "all" && trendByCat;
+  const showProductLines = cat !== "all" && trendByCat;
+
+  // 제품별: 선택 지표 기준 상위 6개 상품
+  const productNames: string[] = [];
+  if (showProductLines) {
+    const byName = new Map<string, MetricRow[]>();
+    for (const r of rows) {
+      const n = rowName(r);
+      if (!byName.has(n)) byName.set(n, []);
+      byName.get(n)!.push(r);
+    }
+    productNames.push(
+      ...[...byName.entries()]
+        .map(([n, rs2]) => ({ n, v: trendCfg.pick(agg(rs2)) }))
+        .sort((a, b) => b.v - a.v)
+        .slice(0, 6)
+        .map((p) => p.n),
+    );
+  }
+
   const trendSeries: { key: string; name: string; color: string }[] = showCatLines
     ? CATEGORIES.map((c) => ({
         key: c.slug,
         name: c.label,
         color: CATEGORY_COLORS[c.slug],
       }))
-    : [
-        {
-          key: "value",
-          name: cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label ?? "전체",
-          color: trendCfg.color,
-        },
-      ];
+    : showProductLines
+      ? productNames.map((n, i) => ({
+          key: `p${i}`,
+          name: shortName(n),
+          color: PRODUCT_PALETTE[i % PRODUCT_PALETTE.length],
+        }))
+      : [
+          {
+            key: "value",
+            name:
+              cat === "all"
+                ? "전체"
+                : CATEGORIES.find((c) => c.slug === cat)?.label ?? "전체",
+            color: trendCfg.color,
+          },
+        ];
+
   const trendData: Record<string, number | string>[] = datesInRange.map((d) => {
     const dayRows = rows.filter((r) => rowDate(r) === d);
+    const point: Record<string, number | string> = { label: mmdd(d) };
     if (showCatLines) {
-      const point: Record<string, number | string> = { label: mmdd(d) };
-      for (const c of CATEGORIES) {
+      for (const c of CATEGORIES)
         point[c.slug] = trendCfg.pick(
           agg(dayRows.filter((r) => r.category === c.slug)),
         );
-      }
-      return point;
+    } else if (showProductLines) {
+      productNames.forEach((n, i) => {
+        point[`p${i}`] = trendCfg.pick(
+          agg(dayRows.filter((r) => rowName(r) === n)),
+        );
+      });
+    } else {
+      point.value = trendCfg.pick(agg(dayRows));
     }
-    return { label: mmdd(d), value: trendCfg.pick(agg(dayRows)) };
+    return point;
   });
 
   const days = rs && re ? daysInclusive(rs, re) : 0;
@@ -386,26 +437,24 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              {cat === "all" && (
-                <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
-                  <button
-                    onClick={() => setTrendByCat(false)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                      !trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
-                    }`}
-                  >
-                    합산
-                  </button>
-                  <button
-                    onClick={() => setTrendByCat(true)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                      trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
-                    }`}
-                  >
-                    카테고리별
-                  </button>
-                </div>
-              )}
+              <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+                <button
+                  onClick={() => setTrendByCat(false)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    !trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  합산
+                </button>
+                <button
+                  onClick={() => setTrendByCat(true)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  {cat === "all" ? "카테고리별" : "제품별"}
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1">
                 {TREND_METRICS.map((t) => (
                   <button
