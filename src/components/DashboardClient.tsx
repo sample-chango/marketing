@@ -22,7 +22,6 @@ import { TrendChart } from "@/components/TrendChart";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
 type Filter = CategorySlug | "all";
-type CompareMode = "prev" | "day" | "week" | "month";
 type MetricKey =
   | "impressions"
   | "clicks"
@@ -34,13 +33,6 @@ type MetricKey =
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
 const mmdd = (iso: string) => iso.slice(5).replace("-", ".");
 const rowDate = (r: MetricRow) => r.period_end;
-
-const COMPARE_LABEL: Record<CompareMode, string> = {
-  prev: "직전 기간",
-  day: "전날",
-  week: "전주",
-  month: "전달",
-};
 
 const PRIMARY: Record<
   FunnelStage["key"],
@@ -92,20 +84,6 @@ const CHANGE_COLS: {
   { label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, goodUp: true },
 ];
 
-const toIso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-const addDays = (iso: string, n: number) => {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return toIso(d);
-};
-const addMonths = (iso: string, n: number) => {
-  const d = new Date(iso + "T00:00:00");
-  d.setMonth(d.getMonth() + n);
-  return toIso(d);
-};
 const daysInclusive = (start: string, end: string) =>
   Math.max(1, Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1);
 
@@ -116,6 +94,130 @@ const byCatOf = (rs: MetricRow[]) =>
     label: c.label,
     metrics: agg(rs.filter((r) => r.category === c.slug)),
   }));
+
+/* ---------- 이슈(주요 변화) 분석 ---------- */
+
+interface Issue {
+  tone: "up" | "down" | "warn";
+  emoji: string;
+  title: string;
+  detail: string;
+  score: number;
+}
+
+const ISSUE_METRICS: {
+  label: string;
+  pick: (m: DerivedMetrics) => number;
+  fmt: (n: number) => string;
+  goodUp: boolean;
+  minBase: number;
+  warn?: boolean;
+}[] = [
+  { label: "노출수", pick: (m) => m.impressions, fmt: fmtInt, goodUp: true, minBase: 300 },
+  { label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt, goodUp: true, minBase: 10 },
+  { label: "전환", pick: (m) => m.conversions, fmt: fmtInt, goodUp: true, minBase: 3 },
+  { label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, goodUp: true, minBase: 10000 },
+  { label: "광고비", pick: (m) => m.cost, fmt: fmtWon, goodUp: false, minBase: 5000, warn: true },
+  { label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, goodUp: true, minBase: 0.5, warn: true },
+];
+
+const nameOf = (r: MetricRow) => r.keyword ?? r.ad_group ?? r.campaign ?? "-";
+const truncName = (s: string, n = 22) => (s.length > n ? s.slice(0, n) + "…" : s);
+function groupByName(rows: MetricRow[]) {
+  const m = new Map<string, MetricRow[]>();
+  for (const r of rows) {
+    const n = nameOf(r);
+    if (!m.has(n)) m.set(n, []);
+    m.get(n)!.push(r);
+  }
+  return m;
+}
+
+/** 현재 vs 전날 비교에서 변화가 큰 이슈를 추출 */
+function buildIssues(cur: MetricRow[], base: MetricRow[]): Issue[] {
+  if (cur.length === 0 || base.length === 0) return [];
+  const issues: Issue[] = [];
+  const curG = groupByName(cur);
+  const baseG = groupByName(base);
+
+  // (1) 제품 매출 순위 변동
+  const rankOf = (g: Map<string, MetricRow[]>) => {
+    const sorted = [...g.entries()]
+      .map(([n, rs]) => ({ n, v: agg(rs).conversionValue }))
+      .filter((x) => x.v > 0)
+      .sort((a, b) => b.v - a.v);
+    return new Map(sorted.map((x, i) => [x.n, i + 1]));
+  };
+  const curRank = rankOf(curG);
+  const baseRank = rankOf(baseG);
+  for (const [n, cr] of curRank) {
+    const br = baseRank.get(n);
+    if (br == null) continue;
+    const change = br - cr; // +면 순위 상승
+    if (Math.abs(change) >= 2) {
+      issues.push({
+        tone: change > 0 ? "up" : "down",
+        emoji: change > 0 ? "🏆" : "🔻",
+        title: `${truncName(n)} 매출 순위 ${change > 0 ? "상승" : "하락"}`,
+        detail: `${br}위 → ${cr}위 (${change > 0 ? "▲" : "▼"}${Math.abs(change)})`,
+        score: Math.abs(change) * 1.5,
+      });
+    }
+  }
+
+  // (2) 카테고리 지표 급변
+  for (const c of CATEGORIES) {
+    const cm = agg(cur.filter((r) => r.category === c.slug));
+    const bm = agg(base.filter((r) => r.category === c.slug));
+    for (const col of ISSUE_METRICS) {
+      const cv = col.pick(cm);
+      const bv = col.pick(bm);
+      if (bv < col.minBase) continue;
+      const d = (cv - bv) / bv;
+      if (Math.abs(d) < 0.5) continue;
+      const up = cv >= bv;
+      const good = up === col.goodUp;
+      issues.push({
+        tone: col.warn && !good ? "warn" : up ? "up" : "down",
+        emoji: col.warn && !good ? "⚠️" : up ? "📈" : "📉",
+        title: `${c.label} ${col.label} ${up ? "급증" : "급감"}`,
+        detail: `${col.fmt(bv)} → ${col.fmt(cv)} (${up ? "▲" : "▼"}${Math.round(
+          Math.abs(d) * 100,
+        )}%)`,
+        score: Math.abs(d),
+      });
+    }
+  }
+
+  // (3) 제품 노출 신규 / 급증
+  for (const [n, rs] of curG) {
+    const cImp = agg(rs).impressions;
+    if (cImp < 500) continue;
+    const bRows = baseG.get(n);
+    const bImp = bRows ? agg(bRows).impressions : 0;
+    if (bImp === 0) {
+      issues.push({
+        tone: "up",
+        emoji: "🆕",
+        title: `${truncName(n)} 신규 노출`,
+        detail: `노출 ${fmtInt(cImp)} (전날 없음)`,
+        score: 1.2,
+      });
+    } else if (cImp / bImp >= 3) {
+      issues.push({
+        tone: "up",
+        emoji: "🚀",
+        title: `${truncName(n)} 노출 급증`,
+        detail: `${fmtInt(bImp)} → ${fmtInt(cImp)} (▲${Math.round(
+          (cImp / bImp - 1) * 100,
+        )}%)`,
+        score: cImp / bImp / 3,
+      });
+    }
+  }
+
+  return issues.sort((a, b) => b.score - a.score).slice(0, 12);
+}
 
 function Bar({ pct, color }: { pct: number; color: string }) {
   return (
@@ -153,7 +255,6 @@ function WoW({
   curr,
   prev,
   fmt,
-  mode,
   goodWhenUp = true,
   showDetail = false,
   onClick,
@@ -161,7 +262,6 @@ function WoW({
   curr: number;
   prev: number | null;
   fmt: (n: number) => string;
-  mode: CompareMode;
   goodWhenUp?: boolean;
   showDetail?: boolean;
   onClick?: () => void;
@@ -179,7 +279,7 @@ function WoW({
           {fmt(prev!)} → {fmt(curr)}
         </span>
       )}
-      {COMPARE_LABEL[mode]}대비{" "}
+      전날대비{" "}
       {has ? (
         <Delta curr={curr} prev={prev} goodWhenUp={goodWhenUp} />
       ) : (
@@ -197,7 +297,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   // 기본값: 가장 최근 1일 (전날 대비 = 최근일 vs 바로 전날). 기간은 달력으로 넓힐 수 있음
   const [rangeStart, setRangeStart] = useState(latest);
   const [rangeEnd, setRangeEnd] = useState(latest);
-  const [compareMode, setCompareMode] = useState<CompareMode>("prev");
   const [cat, setCat] = useState<Filter>("all");
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
   const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
@@ -223,16 +322,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     ? allDates.indexOf(selDates[0])
     : allDates.length;
 
-  let baseDates: string[];
-  if (compareMode === "prev" || compareMode === "day") {
-    // 직전 저장 구간 (동일 개수만큼 이전 저장일) → 단일 날짜면 "바로 직전 저장일"
-    baseDates = allDates.slice(Math.max(0, firstSelIdx - k), firstSelIdx);
-  } else {
-    // 전주(-7일)/전달(-1개월): 해당 구간에 존재하는 저장일
-    const bStart = compareMode === "week" ? addDays(rs, -7) : addMonths(rs, -1);
-    const bEnd = compareMode === "week" ? addDays(re, -7) : addMonths(re, -1);
-    baseDates = allDates.filter((d) => d >= bStart && d <= bEnd);
-  }
+  // 비교 기준 = 동일 개수만큼의 직전 저장일 (단일 날짜면 "바로 직전 저장일")
+  const baseDates = allDates.slice(Math.max(0, firstSelIdx - k), firstSelIdx);
   const baseSet = new Set(baseDates);
   const baseRows = data.rows.filter((r) => baseSet.has(rowDate(r)));
   const basePeriodText =
@@ -246,6 +337,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const base = baseRows.length ? agg(baseRows) : null;
   const byCategory = byCatOf(currentRows);
   const byCategoryBase = baseRows.length ? byCatOf(baseRows) : null;
+  const issues = buildIssues(currentRows, baseRows);
 
   const current: DerivedMetrics =
     cat === "all" ? o : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
@@ -391,17 +483,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               onChange={setRangeEnd}
             />
           </div>
-          <select
-            value={compareMode}
-            onChange={(e) => setCompareMode(e.target.value as CompareMode)}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
-            title="비교 기준"
-          >
-            <option value="prev">직전 기간 대비</option>
-            <option value="day">전날 대비</option>
-            <option value="week">전주 대비</option>
-            <option value="month">전달 대비</option>
-          </select>
+          <span className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-400">
+            전날 대비
+          </span>
           <button
             onClick={() => setShowChange((v) => !v)}
             className={`rounded-lg px-4 py-2 text-sm font-semibold ${
@@ -443,12 +527,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           <h3 className="mb-3 font-semibold text-slate-800">
             변화 분석{" "}
             <span className="text-sm font-normal text-slate-400">
-              {periodText} vs {COMPARE_LABEL[compareMode]} ({basePeriodText})
+              {periodText} vs 전날 ({basePeriodText})
             </span>
           </h3>
           {!base ? (
             <p className="py-6 text-center text-sm text-slate-400">
-              비교할 {COMPARE_LABEL[compareMode]} 데이터가 없습니다.
+              비교할 전날 데이터가 없습니다.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -489,8 +573,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               curr={o.roas}
               prev={base?.roas ?? null}
               fmt={fmtRoas}
-              mode={compareMode}
-              showDetail={showChange}
+                           showDetail={showChange}
               onClick={() => setShowChange((v) => !v)}
             />
           </div>
@@ -576,7 +659,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
           wow={
-            <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} mode={compareMode} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
+            <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
           }
           slices={slicesOf((m) => m.conversions)}
         />
@@ -584,7 +667,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총매출액"
           value={fmtWon(o.conversionValue)}
           wow={
-            <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} mode={compareMode} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
+            <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
           }
           slices={slicesOf((m) => m.conversionValue)}
         />
@@ -592,7 +675,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총광고비"
           value={fmtWon(o.cost)}
           wow={
-            <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} mode={compareMode} goodWhenUp={false} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
+            <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} goodWhenUp={false} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
           }
           slices={slicesOf((m) => m.cost)}
         />
@@ -782,6 +865,48 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
         <DetailTable stage={stage} cat={cat} topRows={topRows} />
       </section>
+
+      {/* 주요 변화 이슈 (전날 대비) */}
+      {data.hasData && (
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-800">주요 변화 이슈</h2>
+          <p className="mb-4 text-sm text-slate-400">
+            {periodText} vs 전날({basePeriodText}) · 변화가 큰 순
+          </p>
+          {!base ? (
+            <p className="py-8 text-center text-sm text-slate-400">
+              전날 데이터가 없어 비교할 수 없습니다. 다른 날짜 데이터를 업로드하세요.
+            </p>
+          ) : issues.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">
+              전날 대비 큰 변화가 없습니다.
+            </p>
+          ) : (
+            <ul className="grid gap-2 md:grid-cols-2">
+              {issues.map((is, i) => (
+                <li
+                  key={i}
+                  className={`flex items-start gap-3 rounded-xl border p-3 ${
+                    is.tone === "up"
+                      ? "border-emerald-200 bg-emerald-50"
+                      : is.tone === "warn"
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <span className="text-lg leading-none">{is.emoji}</span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-slate-800">
+                      {is.title}
+                    </div>
+                    <div className="text-xs text-slate-500">{is.detail}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }
