@@ -403,11 +403,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   }
 
   const trendSeries: { key: string; name: string; color: string }[] = showCatLines
-    ? CATEGORIES.map((c) => ({
-        key: c.slug,
-        name: c.label,
-        color: CATEGORY_COLORS[c.slug],
-      }))
+    ? [...byCategory]
+        .map((c) => ({ c, v: trendCfg.pick(c.metrics) }))
+        .sort((a, b) => b.v - a.v)
+        .map(({ c }) => ({
+          key: c.slug,
+          name: c.label,
+          color: CATEGORY_COLORS[c.slug],
+        }))
     : showProductLines
       ? productNames.map((n, i) => ({
           key: `p${i}`,
