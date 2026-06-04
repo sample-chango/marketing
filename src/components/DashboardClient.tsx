@@ -288,11 +288,21 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">네이버 광고 애널라이저</h1>
         <div className="flex flex-wrap items-center gap-2">
-          {/* 기간 범위 선택 */}
+          {/* 기간 범위 선택 (달력) */}
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
-            <DateSelect dates={allDates} value={rs} onChange={setRangeStart} />
+            <DateSelect
+              value={rs}
+              min={earliest}
+              max={re || latest}
+              onChange={setRangeStart}
+            />
             <span className="text-slate-400">~</span>
-            <DateSelect dates={allDates} value={re} onChange={setRangeEnd} />
+            <DateSelect
+              value={re}
+              min={rs || earliest}
+              max={latest}
+              onChange={setRangeEnd}
+            />
           </div>
           <select
             value={compareMode}
@@ -668,27 +678,25 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 /* ---------- 하위 컴포넌트 ---------- */
 
 function DateSelect({
-  dates,
   value,
+  min,
+  max,
   onChange,
 }: {
-  dates: string[];
   value: string;
+  min?: string;
+  max?: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <select
+    <input
+      type="date"
       value={value}
+      min={min || undefined}
+      max={max || undefined}
       onChange={(e) => onChange(e.target.value)}
       className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none"
-    >
-      {dates.length === 0 && <option value="">-</option>}
-      {dates.map((d) => (
-        <option key={d} value={d}>
-          {fmtDate(d)}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 
