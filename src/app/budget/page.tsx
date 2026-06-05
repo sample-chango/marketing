@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { TopBar } from "@/components/TopBar";
 import { fmtWon } from "@/lib/metrics";
 
 export default function BudgetPage() {
@@ -37,24 +37,15 @@ export default function BudgetPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">예산 설정</h1>
-          <p className="text-sm text-slate-500">
-            하루 예산을 입력하면 대시보드에서 기간 일수 × 일예산으로 집행률이
-            계산됩니다.
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
-        >
-          ← 대시보드
-        </Link>
-      </header>
+    <>
+      <TopBar title="예산 설정" maxWidth="max-w-2xl" />
+      <div className="mx-auto max-w-2xl p-4 md:p-8">
+        <p className="mb-6 text-sm text-slate-500">
+          하루 예산을 입력하면 대시보드에서 기간 일수 × 일예산으로 집행률이
+          계산됩니다.
+        </p>
 
-      <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
             하루 예산
@@ -88,7 +79,8 @@ export default function BudgetPage() {
             {msg}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { TopBar } from "@/components/TopBar";
 import { CATEGORIES } from "@/lib/categories";
 import { fmtInt, fmtWon } from "@/lib/metrics";
 
@@ -68,23 +69,14 @@ export default function ManagePage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">데이터 관리</h1>
-          <p className="text-sm text-slate-500">
-            업로드한 데이터를 기간별로 수정·삭제할 수 있습니다.
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
-        >
-          ← 대시보드
-        </Link>
-      </header>
+    <>
+      <TopBar title="데이터 관리" maxWidth="max-w-5xl" />
+      <div className="mx-auto max-w-5xl p-4 md:p-8">
+        <p className="mb-6 text-sm text-slate-500">
+          업로드한 데이터를 기간별로 수정·삭제할 수 있습니다.
+        </p>
 
-      {/* 기간 목록 */}
+        {/* 기간 목록 */}
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-slate-100 text-slate-500">
@@ -193,7 +185,8 @@ export default function ManagePage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
