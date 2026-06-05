@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { TopBar } from "@/components/TopBar";
+import { useChangeAnalysis } from "@/components/AppShell";
 import {
   CATEGORIES,
   CATEGORY_COLORS,
@@ -301,7 +302,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
   const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
   const [trendByCat, setTrendByCat] = useState(true);
-  const [showChange, setShowChange] = useState(false);
+  const { showChange, toggle: toggleChange } = useChangeAnalysis();
   const [budgetOpen, setBudgetOpen] = useState(false);
 
   // 유효 범위 (데이터 범위로 보정)
@@ -466,50 +467,24 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   };
 
   return (
-    <div className="space-y-5">
-      {/* 헤더 */}
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">네이버 광고 애널라이저</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 기간 범위 선택 (달력 하나) */}
-          <RangeCalendar
-            start={rs}
-            end={re}
-            min={earliest}
-            max={latest}
-            onChange={(s, e) => {
-              setRangeStart(s);
-              setRangeEnd(e);
-            }}
-          />
-          <span className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-400">
-            전날 대비
-          </span>
-          <button
-            onClick={() => setShowChange((v) => !v)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-              showChange
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            변화 분석
-          </button>
-          <Link
-            href="/manage"
-            className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
-          >
-            데이터 관리
-          </Link>
-          <Link
-            href="/upload"
-            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            데이터 업로드
-          </Link>
-        </div>
-      </header>
+    <>
+      {/* 상단 바: 제목 + 기간 선택(우측). 변화분석/네비/로그아웃은 사이드바 */}
+      <TopBar title="Analytics Dashboard">
+        {/* 기간 범위 선택 (달력 하나) */}
+        <RangeCalendar
+          start={rs}
+          end={re}
+          min={earliest}
+          max={latest}
+          onChange={(s, e) => {
+            setRangeStart(s);
+            setRangeEnd(e);
+          }}
+        />
+      </TopBar>
 
+      {/* 본문 */}
+      <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
       {!data.configured && (
         <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
       )}
@@ -573,7 +548,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               prev={base?.roas ?? null}
               fmt={fmtRoas}
                            showDetail={showChange}
-              onClick={() => setShowChange((v) => !v)}
+              onClick={toggleChange}
             />
           </div>
           <div className="mt-2 text-4xl font-bold text-slate-900">
@@ -658,7 +633,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
           wow={
-            <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
+            <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} showDetail={showChange} onClick={toggleChange} />
           }
           slices={slicesOf((m) => m.conversions)}
         />
@@ -666,7 +641,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총매출액"
           value={fmtWon(o.conversionValue)}
           wow={
-            <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
+            <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} showDetail={showChange} onClick={toggleChange} />
           }
           slices={slicesOf((m) => m.conversionValue)}
         />
@@ -674,7 +649,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총광고비"
           value={fmtWon(o.cost)}
           wow={
-            <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} goodWhenUp={false} showDetail={showChange} onClick={() => setShowChange((v) => !v)} />
+            <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} goodWhenUp={false} showDetail={showChange} onClick={toggleChange} />
           }
           slices={slicesOf((m) => m.cost)}
         />
@@ -906,7 +881,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           )}
         </section>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

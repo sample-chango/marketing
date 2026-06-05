@@ -1,0 +1,164 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useChangeAnalysis } from "@/components/AppShell";
+
+type NavItem = { href: string; label: string; icon: React.ReactNode };
+
+const ICON = {
+  dashboard: (
+    <path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z" />
+  ),
+  manage: (
+    <path d="M4 5h16M4 12h16M4 19h16" strokeWidth="2" strokeLinecap="round" />
+  ),
+  upload: (
+    <path
+      d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  ),
+  budget: (
+    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  ),
+};
+
+const NAV: NavItem[] = [
+  {
+    href: "/",
+    label: "대시보드",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+        {ICON.dashboard}
+      </svg>
+    ),
+  },
+  {
+    href: "/manage",
+    label: "데이터 관리",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-current">
+        {ICON.manage}
+      </svg>
+    ),
+  },
+  {
+    href: "/upload",
+    label: "데이터 업로드",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-current">
+        {ICON.upload}
+      </svg>
+    ),
+  },
+  {
+    href: "/budget",
+    label: "예산 설정",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5 fill-none stroke-current"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {ICON.budget}
+      </svg>
+    ),
+  },
+];
+
+const itemBase =
+  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition";
+const itemActive = "bg-emerald-600 text-white";
+const itemIdle = "text-slate-200 hover:bg-slate-500 hover:text-white";
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { showChange, toggle } = useChangeAnalysis();
+
+  // 변화 분석: 대시보드에선 토글, 다른 페이지에선 대시보드로 이동 후 켠다.
+  const onChangeClick = () => {
+    if (pathname !== "/") {
+      router.push("/");
+      if (!showChange) toggle();
+    } else {
+      toggle();
+    }
+  };
+
+  return (
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-500 bg-slate-600 text-slate-100 md:flex">
+      {/* 브랜드 */}
+      <div className="flex items-center gap-4 px-5 py-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="스마트스토어"
+          className="h-8 w-8 rounded-lg"
+        />
+        <span className="text-lg font-bold text-white">스마트스토어</span>
+      </div>
+
+      {/* 메뉴 */}
+      <nav className="flex-1 space-y-1 px-3 py-2">
+        {NAV.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`${itemBase} ${active ? itemActive : itemIdle}`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          );
+        })}
+
+        {/* 변화 분석 토글 */}
+        <button
+          type="button"
+          onClick={onChangeClick}
+          className={`${itemBase} w-full ${
+            showChange && pathname === "/" ? itemActive : itemIdle
+          }`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5 fill-none stroke-current"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 17l6-6 4 4 8-8M21 7h-5M21 7v5" />
+          </svg>
+          변화 분석
+        </button>
+      </nav>
+
+      {/* 하단: 로그아웃 */}
+      <div className="border-t border-slate-500 p-3">
+        <form action="/auth/signout" method="post">
+          <button type="submit" className={`${itemBase} w-full ${itemIdle}`}>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5 fill-none stroke-current"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M16 17l5-5-5-5M21 12H9M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            </svg>
+            로그아웃
+          </button>
+        </form>
+      </div>
+    </aside>
+  );
+}

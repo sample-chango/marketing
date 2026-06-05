@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { TopBar } from "@/components/TopBar";
 import { categoryLabel } from "@/lib/categories";
 
 interface UploadResult {
@@ -54,21 +55,12 @@ export default function UploadPage() {
     mode === "range" && (!periodStart || !periodEnd || periodStart > periodEnd);
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">데이터 업로드</h1>
-          <p className="text-sm text-slate-500">
-            네이버 소재 목록 보고서를 올리면 카테고리가 자동 분류됩니다.
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
-        >
-          ← 대시보드
-        </Link>
-      </header>
+    <>
+      <TopBar title="데이터 업로드" maxWidth="max-w-2xl" />
+      <div className="mx-auto max-w-2xl p-4 md:p-8">
+        <p className="mb-6 text-sm text-slate-500">
+          네이버 소재 목록 보고서를 올리면 카테고리가 자동 분류됩니다.
+        </p>
 
       <form
         onSubmit={handleSubmit}
@@ -262,6 +254,7 @@ export default function UploadPage() {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
