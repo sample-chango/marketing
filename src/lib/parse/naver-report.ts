@@ -1,6 +1,10 @@
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
-import { classifyCategory, type CategorySlug } from "@/lib/categories";
+import {
+  classifyCategory,
+  signatureProductName,
+  type CategorySlug,
+} from "@/lib/categories";
 
 /**
  * 네이버 검색광고 보고서(다운로드) 파서.
@@ -205,8 +209,12 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
       `${rawKeyword ?? ""} ${campaign ?? ""} ${adGroup ?? ""}`,
     );
 
-    // 소재(상품) 피드 형식 "상품명,가격,카테고리경로,URL,..." → 상품명만 추출
-    const keyword = cleanCreativeName(rawKeyword);
+    // 소재(상품) 피드 형식 "상품명,가격,카테고리경로,URL,..." → 상품명만 추출.
+    // 시그니처매치(올인원 패키지)는 괄호 안이 제품명 → 그 이름으로 표시.
+    const keyword =
+      category === "signature"
+        ? signatureProductName(rawKeyword)
+        : cleanCreativeName(rawKeyword);
 
     const impressions = Math.round(toNumber(get(cells, "impressions")));
     const clicks = Math.round(toNumber(get(cells, "clicks")));

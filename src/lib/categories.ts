@@ -37,8 +37,11 @@ export function categoryLabel(slug: string): string {
 export function classifyCategory(text: string): CategorySlug | null {
   const t = (text ?? "").replace(/\s/g, "");
   if (!t) return null;
-  // 제품 라인 우선
+  // 제품 라인 우선 (소재 종류보다 먼저 판별)
+  // 시그니처매치 라인: "시그니처" 키워드 또는 "올인원 패키지"로 표기된 제품.
+  // (올인원 패키지 = 벽지+마루+필름 등을 묶은 시그니처매치 세트. 괄호 안이 제품명)
   if (t.includes("시그니처")) return "signature";
+  if (t.includes("올인원패키지")) return "signature";
   if (t.includes("베스트팩")) return "bestpack";
   // 소재 종류
   if (t.includes("벽지")) return "wallpaper";
@@ -46,6 +49,18 @@ export function classifyCategory(text: string): CategorySlug | null {
   if (t.includes("마루")) return "flooring";
   if (t.includes("필름")) return "film";
   return null;
+}
+
+/**
+ * 시그니처매치(올인원 패키지) 제품의 표시용 이름.
+ * 소재 문자열의 첫 괄호 `( )` 안이 제품 이름.
+ *   "[샘플창고] 벽지+마루+필름 샘플 세트(우드&크림 무드) │ … 올인원 패키지" → "우드&크림 무드"
+ * 괄호가 없으면 원본을 그대로 반환.
+ */
+export function signatureProductName(text: string | null): string | null {
+  if (!text) return text;
+  const m = text.match(/\(([^)]+)\)/);
+  return m ? m[1].trim() : text;
 }
 
 export function isCategorySlug(value: string): value is CategorySlug {

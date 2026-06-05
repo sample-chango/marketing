@@ -7,7 +7,7 @@ import {
   CATEGORY_COLORS,
   type CategorySlug,
 } from "@/lib/categories";
-import { FUNNEL_STAGES, deriveRow, type FunnelStage } from "@/lib/funnel";
+import { FUNNEL_STAGES, type FunnelStage } from "@/lib/funnel";
 import {
   deriveMetrics,
   sumTotals,
@@ -357,10 +357,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     .sort((a, b) => b.value - a.value);
   const catMax = Math.max(1, ...catBars.map((b) => b.value));
 
-  const topRows = [...rows]
-    .map((r) => {
-      const dm = deriveRow(r);
-      return { r, dm, v: primary.pick(dm) };
+  // 제품명 기준으로 묶어 기간 내 일자별 행을 합산 (동일 상품이 날짜마다 중복되지 않도록)
+  const topRows = [...groupByName(rows).values()]
+    .map((rs) => {
+      const dm = agg(rs);
+      return { r: rs[0], dm, v: primary.pick(dm) };
     })
     .sort((a, b) => b.v - a.v)
     .slice(0, 10);
