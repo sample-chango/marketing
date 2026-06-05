@@ -16,14 +16,27 @@ interface UploadResult {
   detectedColumns?: Record<string, string>;
 }
 
+/** ISO 날짜에 n일 더하기 (타임존 안전) */
+function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
+    dt.getDate(),
+  ).padStart(2, "0")}`;
+}
+const WD_KOR = ["일", "월", "화", "수", "목", "금", "토"];
+
 export default function UploadPage() {
-  const [mode, setMode] = useState<"single" | "range">("single");
+  const [mode, setMode] = useState<"single" | "range" | "weekday">("single");
   const [reportDate, setReportDate] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+  const [weekStart, setWeekStart] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
+
+  const weekEnd = weekStart ? addDays(weekStart, 6) : "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +48,13 @@ export default function UploadPage() {
     fd.append("file", file);
     if (mode === "single") {
       if (reportDate) fd.append("reportDate", reportDate);
-    } else {
+    } else if (mode === "range") {
       fd.append("periodStart", periodStart);
       fd.append("periodEnd", periodEnd);
+    } else {
+      // 요일별: 선택한 주 시작일 ~ +6일(7일)
+      fd.append("periodStart", weekStart);
+      fd.append("periodEnd", weekEnd);
     }
 
     try {
@@ -52,6 +69,7 @@ export default function UploadPage() {
 
   const rangeInvalid =
     mode === "range" && (!periodStart || !periodEnd || periodStart > periodEnd);
+  const weekdayInvalid = mode === "weekday" && !weekStart;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -114,9 +132,53 @@ export default function UploadPage() {
             >
               기간
             </button>
+            <button
+              type="button"
+              onClick={() => setMode("weekday")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                mode === "weekday"
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500"
+              }`}
+            >
+              요일별(주간)
+            </button>
           </div>
 
-          {mode === "single" ? (
+          {mode === "weekday" ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                주 시작일{" "}
+                <span className="text-xs font-normal text-slate-400">
+                  (이 날짜부터 7일로 매핑)
+                </span>
+              </label>
+              <input
+                type="date"
+                value={weekStart}
+                onChange={(e) => setWeekStart(e.target.value)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                상품마다 월~일 7개 행이 있는 <b>요일 분석 보고서</b>를 올리면, 각
+                요일 값이 아래 날짜에 맞춰 저장됩니다.
+              </p>
+              {weekStart && (
+                <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
+                  {Array.from({ length: 7 }, (_, i) => {
+                    const d = addDays(weekStart, i);
+                    const wd = WD_KOR[new Date(d + "T00:00:00").getDay()];
+                    return (
+                      <li key={d} className="tabular-nums">
+                        <span className="font-medium text-slate-800">{wd}</span>{" "}
+                        {d.slice(5).replace("-", ".")}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : mode === "single" ? (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 기준일자{" "}
@@ -162,7 +224,7 @@ export default function UploadPage() {
 
         <button
           type="submit"
-          disabled={!file || busy || rangeInvalid}
+          disabled={!file || busy || rangeInvalid || weekdayInvalid}
           className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {busy ? "업로드 중…" : "업로드"}
@@ -171,6 +233,9 @@ export default function UploadPage() {
           <p className="text-xs text-red-500">
             시작일과 종료일을 올바르게 입력하세요.
           </p>
+        )}
+        {weekdayInvalid && (
+          <p className="text-xs text-red-500">주 시작일을 선택하세요.</p>
         )}
       </form>
 

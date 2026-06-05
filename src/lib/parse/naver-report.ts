@@ -16,6 +16,7 @@ import {
 
 export interface ParsedRow {
   reportDate: string | null; // ISO yyyy-mm-dd (없으면 null → 업로드 시 기본일자 사용)
+  weekday: number | null; // 요일별 보고서일 때 1=월 … 7=일 (아니면 null)
   category: CategorySlug | null; // 소재 내용으로 자동 분류 (null = 미분류)
   campaign: string | null;
   adGroup: string | null;
@@ -118,6 +119,20 @@ function toIsoDate(value: unknown): string | null {
   return null;
 }
 
+/** "월요일"~"일요일" → 1(월)~7(일). 그 외 null */
+const WEEKDAY_INDEX: Record<string, number> = {
+  월요일: 1,
+  화요일: 2,
+  수요일: 3,
+  목요일: 4,
+  금요일: 5,
+  토요일: 6,
+  일요일: 7,
+};
+function weekdayOf(label: string): number | null {
+  return WEEKDAY_INDEX[label.replace(/\s+/g, "")] ?? null;
+}
+
 /**
  * 네이버 쇼핑 "소재" 컬럼은 `상품명,가격,카테고리경로,상품URL,...` 형태의
  * 피드 문자열일 수 있음 → 첫 콤마 앞 상품명만 추출.
@@ -190,6 +205,35 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
     return i == null ? undefined : cells[i];
   };
 
+  const readMetrics = (cells: string[]) => ({
+    impressions: Math.round(toNumber(get(cells, "impressions"))),
+    clicks: Math.round(toNumber(get(cells, "clicks"))),
+    cost: toNumber(get(cells, "cost")),
+    conversions: toNumber(get(cells, "conversions")),
+    conversionValue: toNumber(get(cells, "conversionValue")),
+  });
+
+  // 소재/키워드 컬럼 라벨 (요일행 판별용)
+  const kwIdx = map.get("keyword");
+  const labelOf = (cells: string[]) =>
+    kwIdx == null ? "" : String(cells[kwIdx] ?? "").trim();
+
+  // 요일별(상품마다 월~일 7행) 보고서인지 감지
+  const weekdayFormat = (() => {
+    for (let r = headerIdx + 1; r < matrix.length; r++) {
+      if (weekdayOf(labelOf(matrix[r] ?? [])) != null) return true;
+    }
+    return false;
+  })();
+
+  if (weekdayFormat) {
+    return rowsFromWeekdayMatrix(matrix, headerIdx, detected, warnings, {
+      get,
+      readMetrics,
+      labelOf,
+    });
+  }
+
   const rows: ParsedRow[] = [];
   for (let r = headerIdx + 1; r < matrix.length; r++) {
     const cells = matrix[r] ?? [];
@@ -231,6 +275,7 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
 
     rows.push({
       reportDate: toIsoDate(get(cells, "reportDate")),
+      weekday: null,
       category,
       campaign,
       adGroup,
@@ -253,6 +298,110 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
     } else {
       unclassified.push(row.keyword ?? "(이름없음)");
     }
+  }
+
+  return { rows, detectedColumns: detected, warnings, categoryCounts, unclassified };
+}
+
+/**
+ * 요일별 보고서 파싱: 상품 헤더(합계) 행은 컨텍스트(이름·카테고리)로만 쓰고,
+ * 그 아래 월~일 7개 행을 실제 데이터로 추출한다(요일 태그 부착).
+ */
+function rowsFromWeekdayMatrix(
+  matrix: string[][],
+  headerIdx: number,
+  detected: Partial<Record<CanonicalField, string>>,
+  warnings: string[],
+  helpers: {
+    get: (cells: string[], f: CanonicalField) => string | undefined;
+    readMetrics: (cells: string[]) => {
+      impressions: number;
+      clicks: number;
+      cost: number;
+      conversions: number;
+      conversionValue: number;
+    };
+    labelOf: (cells: string[]) => string;
+  },
+): ParseResult {
+  const { get, readMetrics, labelOf } = helpers;
+  const rows: ParsedRow[] = [];
+  const unclassified: string[] = [];
+
+  // 현재 상품 컨텍스트 (직전 상품 헤더에서 설정)
+  let curName: string | null = null;
+  let curCategory: CategorySlug | null = null;
+  let curCampaign: string | null = null;
+  let curAdGroup: string | null = null;
+
+  for (let r = headerIdx + 1; r < matrix.length; r++) {
+    const cells = matrix[r] ?? [];
+    if (cells.every((c) => String(c ?? "").trim() === "")) continue;
+
+    const label = labelOf(cells);
+    const wd = weekdayOf(label);
+
+    if (wd != null) {
+      // 현재 상품의 요일별 데이터 행
+      if (!curCategory) continue; // 미분류 상품의 요일행은 저장하지 않음
+      const m = readMetrics(cells);
+      if (
+        m.impressions === 0 &&
+        m.clicks === 0 &&
+        m.cost === 0 &&
+        m.conversions === 0 &&
+        m.conversionValue === 0
+      )
+        continue;
+      rows.push({
+        reportDate: null,
+        weekday: wd,
+        category: curCategory,
+        campaign: curCampaign,
+        adGroup: curAdGroup,
+        keyword: curName,
+        qualityScore: null,
+        ...m,
+      });
+      continue;
+    }
+
+    // 요약/합계 행 스킵
+    const campaign = (get(cells, "campaign") ?? "").toString().trim() || null;
+    const adGroup = (get(cells, "adGroup") ?? "").toString().trim() || null;
+    const rawKeyword = label || null;
+    const firstText = [campaign, adGroup, rawKeyword].find(Boolean) ?? "";
+    if (
+      /^(합계|총계|소계|total)/i.test(firstText) ||
+      /\d+\s*개\s*결과/.test(firstText)
+    )
+      continue;
+    if (!rawKeyword) continue;
+
+    // 새 상품 헤더 → 컨텍스트 갱신 (데이터로 저장하지 않음)
+    const category = classifyCategory(
+      `${rawKeyword} ${campaign ?? ""} ${adGroup ?? ""}`,
+    );
+    curCategory = category;
+    curCampaign = campaign;
+    curAdGroup = adGroup;
+    curName =
+      category === "signature"
+        ? signatureProductName(rawKeyword)
+        : cleanCreativeName(rawKeyword);
+    if (!category) unclassified.push(curName ?? "(이름없음)");
+  }
+
+  if (rows.length === 0) {
+    warnings.push(
+      "요일(월~일) 행을 찾았지만 저장할 데이터가 없습니다. 상품 분류를 확인하세요.",
+    );
+  }
+
+  const categoryCounts: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.category)
+      categoryCounts[row.category] = (categoryCounts[row.category] ?? 0) + 1;
   }
 
   return { rows, detectedColumns: detected, warnings, categoryCounts, unclassified };

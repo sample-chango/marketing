@@ -77,23 +77,74 @@ export async function POST(req: Request) {
     );
   }
 
+  const hasWeekday = parsed.rows.some((r) => r.weekday != null);
+
   // 분류된 행만 저장 (미분류는 건너뜀 → 응답에 목록 반환)
-  const classified = parsed.rows.filter((r) => r.category);
-  const records = classified.map((r) => ({
-    report_date: periodEnd,
-    period_start: periodStart,
-    period_end: periodEnd,
-    category: r.category,
-    campaign: r.campaign,
-    ad_group: r.adGroup,
-    keyword: r.keyword,
-    impressions: r.impressions,
-    clicks: r.clicks,
-    cost: r.cost,
-    conversions: r.conversions,
-    conversion_value: r.conversionValue,
-    quality_score: r.qualityScore,
-  }));
+  let records: Record<string, unknown>[];
+  if (hasWeekday) {
+    // 요일별 데이터 → 선택한 1주(7일)의 실제 날짜로 매핑
+    const DAY = 86400000;
+    const startD = new Date(periodStart + "T00:00:00");
+    const endD = new Date(periodEnd + "T00:00:00");
+    const span = Math.round((endD.getTime() - startD.getTime()) / DAY) + 1;
+    if (span !== 7) {
+      return NextResponse.json(
+        {
+          error: `요일별 데이터는 정확히 1주(7일) 기간이어야 합니다. 현재 ${span}일이 선택됐습니다.`,
+        },
+        { status: 422 },
+      );
+    }
+    const isoOf = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate(),
+      ).padStart(2, "0")}`;
+    // weekday(1=월 … 7=일) → 해당 주의 실제 날짜
+    const wdToDate: Record<number, string> = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startD.getTime() + i * DAY);
+      const jsDay = d.getDay(); // 0=일 … 6=토
+      wdToDate[jsDay === 0 ? 7 : jsDay] = isoOf(d);
+    }
+    records = parsed.rows
+      .filter((r) => r.category && r.weekday != null)
+      .map((r) => {
+        const date = wdToDate[r.weekday as number];
+        return {
+          report_date: date,
+          period_start: date,
+          period_end: date,
+          category: r.category,
+          campaign: r.campaign,
+          ad_group: r.adGroup,
+          keyword: r.keyword,
+          impressions: r.impressions,
+          clicks: r.clicks,
+          cost: r.cost,
+          conversions: r.conversions,
+          conversion_value: r.conversionValue,
+          quality_score: r.qualityScore,
+        };
+      });
+  } else {
+    records = parsed.rows
+      .filter((r) => r.category)
+      .map((r) => ({
+        report_date: periodEnd,
+        period_start: periodStart,
+        period_end: periodEnd,
+        category: r.category,
+        campaign: r.campaign,
+        ad_group: r.adGroup,
+        keyword: r.keyword,
+        impressions: r.impressions,
+        clicks: r.clicks,
+        cost: r.cost,
+        conversions: r.conversions,
+        conversion_value: r.conversionValue,
+        quality_score: r.qualityScore,
+      }));
+  }
 
   if (records.length === 0) {
     return NextResponse.json(
@@ -108,12 +159,17 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // 재업로드 멱등: 동일 기간 기존 데이터 제거 후 재삽입
-  const { error: delErr } = await supabase
-    .from("ad_metrics")
-    .delete()
-    .eq("period_start", periodStart)
-    .eq("period_end", periodEnd);
+  // 재업로드 멱등: 기존 데이터 제거 후 재삽입
+  //  - 요일별: 해당 주(7일) 안의 일자별 데이터 모두 제거
+  //  - 일반: 동일 기간 버킷 제거
+  const delBase = supabase.from("ad_metrics").delete();
+  const { error: delErr } = hasWeekday
+    ? await delBase
+        .gte("period_start", periodStart)
+        .lte("period_start", periodEnd)
+    : await delBase
+        .eq("period_start", periodStart)
+        .eq("period_end", periodEnd);
   if (delErr) {
     return NextResponse.json(
       { error: "기존 데이터 정리 실패: " + delErr.message },
