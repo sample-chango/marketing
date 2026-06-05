@@ -38,7 +38,7 @@ export function TrendChart({
   const multi = series.length > 1;
 
   return (
-    <div className="h-[280px] w-full">
+    <div className="h-[280px] w-full min-w-0 overflow-hidden">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 16, bottom: 4, left: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />

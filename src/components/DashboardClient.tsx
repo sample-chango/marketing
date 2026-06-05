@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CATEGORIES,
@@ -471,22 +471,17 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">네이버 광고 애널라이저</h1>
         <div className="flex flex-wrap items-center gap-2">
-          {/* 기간 범위 선택 (달력) */}
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
-            <DateSelect
-              value={rs}
-              min={earliest}
-              max={re || latest}
-              onChange={setRangeStart}
-            />
-            <span className="text-slate-400">~</span>
-            <DateSelect
-              value={re}
-              min={rs || earliest}
-              max={latest}
-              onChange={setRangeEnd}
-            />
-          </div>
+          {/* 기간 범위 선택 (달력 하나) */}
+          <RangeCalendar
+            start={rs}
+            end={re}
+            min={earliest}
+            max={latest}
+            onChange={(s, e) => {
+              setRangeStart(s);
+              setRangeEnd(e);
+            }}
+          />
           <span className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-400">
             전날 대비
           </span>
@@ -765,7 +760,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <Fragment key={s.key}>
                 <button
                   onClick={() => setStageKey(s.key)}
-                  className={`min-w-[150px] flex-1 overflow-hidden rounded-xl border text-left transition ${
+                  className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
                     selected
                       ? "border-emerald-500 ring-2 ring-emerald-200"
                       : "border-slate-200 hover:border-slate-300"
@@ -917,26 +912,185 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
 /* ---------- 하위 컴포넌트 ---------- */
 
-function DateSelect({
-  value,
+/** 달력 하나로 기간(시작~종료)을 선택하는 팝오버 */
+function RangeCalendar({
+  start,
+  end,
   min,
   max,
   onChange,
 }: {
-  value: string;
-  min?: string;
-  max?: string;
-  onChange: (v: string) => void;
+  start: string;
+  end: string;
+  min: string;
+  max: string;
+  onChange: (start: string, end: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const [view, setView] = useState(start || max);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setPending(null);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setPending(null);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toISO = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
+  const parse = (s: string) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return { y, m: m - 1, d };
+  };
+  const fmtD = (iso: string) => iso.replaceAll("-", ".");
+
+  // 데이터가 없으면 달력 대신 안내
+  if (!max) {
+    return (
+      <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
+        기간 없음
+      </span>
+    );
+  }
+
+  const base = view || start || max;
+  const { y: vy, m: vm } = parse(base);
+  const monthLabel = `${vy}년 ${vm + 1}월`;
+  const firstWeekday = new Date(vy, vm, 1).getDay();
+  const daysInMonth = new Date(vy, vm + 1, 0).getDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(toISO(vy, vm, d));
+
+  const shift = (delta: number) => {
+    const nd = new Date(vy, vm + delta, 1);
+    setView(toISO(nd.getFullYear(), nd.getMonth(), 1));
+  };
+  const viewMonth = base.slice(0, 7);
+  const canPrev = viewMonth > min.slice(0, 7);
+  const canNext = viewMonth < max.slice(0, 7);
+
+  const pick = (day: string) => {
+    if (day < min || day > max) return;
+    if (pending == null) {
+      setPending(day);
+    } else {
+      let s = pending;
+      let e = day;
+      if (s > e) [s, e] = [e, s];
+      onChange(s, e);
+      setPending(null);
+      setOpen(false);
+    }
+  };
+
+  const label =
+    start === end ? fmtD(start) : `${fmtD(start)} ~ ${fmtD(end)}`;
+  const isEdge = (day: string) =>
+    pending ? day === pending : day === start || day === end;
+  const within = (day: string) =>
+    pending ? false : day > start && day < end;
+
   return (
-    <input
-      type="date"
-      value={value}
-      min={min || undefined}
-      max={max || undefined}
-      onChange={(e) => onChange(e.target.value)}
-      className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none"
-    />
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+          } else {
+            setView(start || max);
+            setPending(null);
+            setOpen(true);
+          }
+        }}
+        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+      >
+        <span aria-hidden>📅</span>
+        <span>{start ? label : "기간 선택"}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+          <div className="mb-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => canPrev && shift(-1)}
+              disabled={!canPrev}
+              className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <span className="text-sm font-semibold text-slate-700">
+              {monthLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => canNext && shift(1)}
+              disabled={!canNext}
+              className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-0.5 text-center text-[11px] text-slate-400">
+            {["일", "월", "화", "수", "목", "금", "토"].map((w) => (
+              <div key={w} className="py-1">
+                {w}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-0.5">
+            {cells.map((day, i) => {
+              if (!day) return <div key={i} />;
+              const disabled = day < min || day > max;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => pick(day)}
+                  className={`h-8 rounded-md text-xs transition ${
+                    disabled
+                      ? "cursor-default text-slate-300"
+                      : isEdge(day)
+                        ? "bg-emerald-600 font-semibold text-white"
+                        : within(day)
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  {parse(day).d}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 text-center text-[11px] text-slate-400">
+            {pending ? "종료일을 선택하세요" : "시작일 → 종료일 순으로 클릭"}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1051,7 +1205,7 @@ function DonutCard({
   slices: { label: string; value: number; color: string }[];
 }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
           <div className="text-sm font-medium text-slate-500">{title}</div>

@@ -33,7 +33,7 @@ export default async function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-slate-100 text-slate-900">
+      <body className="min-h-full overflow-x-hidden bg-slate-100 text-slate-900">
         {user && (
           <header className="border-b border-slate-200 bg-white">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8">

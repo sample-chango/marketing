@@ -53,7 +53,7 @@ export function CategoryDonut({ slices }: { slices: DonutSlice[] }) {
 
   return (
     <div>
-      <div className="h-[180px] w-full">
+      <div className="h-[180px] w-full min-w-0 overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart margin={{ top: 6, bottom: 6, left: 6, right: 6 }}>
             <Pie
