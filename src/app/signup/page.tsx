@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+
+type SignupResponse = {
+  error?: string;
+  ok?: boolean;
+  status?: "pending";
+};
 
 export default function SignupPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -23,41 +27,50 @@ export default function SignupPage() {
       body: JSON.stringify({ email: email.trim(), password }),
     });
 
-    const result = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
+    const result = (await response.json().catch(() => ({}))) as SignupResponse;
 
     if (!response.ok) {
-      setError(result.error ?? "회원가입에 실패했습니다.");
+      setError(result.error ?? "가입 신청에 실패했습니다.");
       setLoading(false);
       return;
     }
 
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    setSubmitted(true);
+    setPassword("");
+    setLoading(false);
+  }
 
-    if (signInError) {
-      setError("가입은 완료됐지만 자동 로그인에 실패했습니다. 로그인 페이지에서 다시 로그인해 주세요.");
-      setLoading(false);
-      return;
-    }
+  if (submitted) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="w-full max-w-sm space-y-5 rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold text-slate-900">가입 신청 완료</h1>
+            <p className="text-sm leading-6 text-slate-600">
+              관리자 승인 대기 중입니다. 승인 후 같은 이메일과 비밀번호로 로그인할 수 있습니다.
+            </p>
+          </div>
 
-    router.push("/");
-    router.refresh();
+          <Link
+            href="/login"
+            className="block w-full rounded-md bg-slate-900 px-3 py-2 text-center text-sm font-medium text-white transition hover:bg-slate-700"
+          >
+            로그인 화면으로 이동
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex min-h-[70vh] items-center justify-center">
+    <div className="flex min-h-[70vh] items-center justify-center px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-5 rounded-xl border border-slate-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-sm space-y-5 rounded-lg border border-slate-200 bg-white p-8 shadow-sm"
       >
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold text-slate-900">회원가입</h1>
-          <p className="text-sm text-slate-500">마케팅 애널라이저 계정 만들기</p>
+          <h1 className="text-xl font-semibold text-slate-900">가입 신청</h1>
+          <p className="text-sm text-slate-500">이메일과 비밀번호만 입력하면 관리자가 확인합니다.</p>
         </div>
 
         <div className="space-y-1.5">
@@ -103,7 +116,7 @@ export default function SignupPage() {
           disabled={loading}
           className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
         >
-          {loading ? "가입 중..." : "회원가입"}
+          {loading ? "신청 중..." : "가입 신청"}
         </button>
 
         <p className="text-center text-sm text-slate-500">

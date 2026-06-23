@@ -1,10 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isApprovedUser } from "@/lib/authz";
 
-/**
- * 매 요청마다 Supabase 세션을 갱신하고, 미인증 사용자를 /login 으로 보냅니다.
- * @supabase/ssr 공식 패턴.
- */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -29,26 +26,34 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // getUser()를 호출해야 세션 토큰이 갱신됩니다. 이 줄과 redirect 사이에 로직 추가 금지.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublic =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/api/signup") ||
-    pathname.startsWith("/auth");
+  const isAuthRoute = pathname.startsWith("/auth");
+  const isSignupRoute = pathname.startsWith("/signup") || pathname.startsWith("/api/signup");
+  const isLoginRoute = pathname.startsWith("/login");
+  const isPendingRoute = pathname.startsWith("/pending");
+  const isPublicRoute = isLoginRoute || isSignupRoute || isAuthRoute;
 
-  if (!user && !isPublic) {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // 이미 로그인한 사용자가 /login 에 오면 대시보드로
-  if (user && pathname.startsWith("/login")) {
+  if (user && !isApprovedUser(user)) {
+    if (!isPendingRoute && !isAuthRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/pending";
+      return NextResponse.redirect(url);
+    }
+
+    return supabaseResponse;
+  }
+
+  if (user && (isLoginRoute || isSignupRoute || isPendingRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

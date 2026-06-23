@@ -34,19 +34,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[70vh] items-center justify-center">
+    <div className="flex min-h-[70vh] items-center justify-center px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-5 rounded-xl border border-slate-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-sm space-y-5 rounded-lg border border-slate-200 bg-white p-8 shadow-sm"
       >
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-slate-900">로그인</h1>
-          <p className="text-sm text-slate-500">네이버 광고 애널라이저</p>
+          <p className="text-sm text-slate-500">마케팅 애널라이저</p>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-            아이디 (이메일)
+            아이디 이메일
           </label>
           <input
             id="email"
@@ -56,7 +56,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-            placeholder="you@bjchango.com"
+            placeholder="you@example.com"
           />
         </div>
 
@@ -92,7 +92,7 @@ export default function LoginPage() {
         <p className="text-center text-sm text-slate-500">
           계정이 없나요?{" "}
           <Link href="/signup" className="font-medium text-slate-900 underline-offset-4 hover:underline">
-            회원가입
+            가입 신청
           </Link>
         </p>
       </form>
