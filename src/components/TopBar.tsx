@@ -18,7 +18,7 @@ export function TopBar({
       <div
         className={`mx-auto flex ${maxWidth} flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-8`}
       >
-        <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+        <h1 className="text-xl font-bold text-green-600">{title}</h1>
         {children && (
           <div className="flex flex-wrap items-center gap-2">{children}</div>
         )}
