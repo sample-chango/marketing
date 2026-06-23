@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { isAdminUser } from "@/lib/authz";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "네이버 광고 애널라이저",
-  description: "네이버 검색광고 성과 리포팅 대시보드",
+  title: "마케팅 애널라이저",
+  description: "네이버 검색광고 성과 리포트 대시보드",
 };
 
 export default async function RootLayout({
@@ -35,7 +36,9 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full overflow-x-hidden bg-slate-100 text-slate-900">
-        <AppShell email={user?.email ?? null}>{children}</AppShell>
+        <AppShell email={user?.email ?? null} isAdmin={isAdminUser(user)}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );

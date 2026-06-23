@@ -25,6 +25,13 @@ const ICON = {
   budget: (
     <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
   ),
+  users: (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </>
+  ),
 };
 
 const NAV: NavItem[] = [
@@ -72,17 +79,35 @@ const NAV: NavItem[] = [
   },
 ];
 
+const ADMIN_NAV: NavItem[] = [
+  {
+    href: "/admin/signups",
+    label: "가입 승인",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5 fill-none stroke-current"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {ICON.users}
+      </svg>
+    ),
+  },
+];
+
 const itemBase =
   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition";
 const itemActive = "bg-emerald-600 text-white";
 const itemIdle = "text-slate-200 hover:bg-slate-500 hover:text-white";
 
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { showChange, toggle } = useChangeAnalysis();
+  const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
 
-  // 변화 분석: 대시보드에선 토글, 다른 페이지에선 대시보드로 이동 후 켠다.
   const onChangeClick = () => {
     if (pathname !== "/") {
       router.push("/");
@@ -94,7 +119,6 @@ export function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-500 bg-slate-600 text-slate-100 md:flex">
-      {/* 브랜드 */}
       <div className="flex items-center gap-4 px-5 py-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -105,9 +129,8 @@ export function Sidebar() {
         <span className="text-lg font-bold text-white">스마트스토어</span>
       </div>
 
-      {/* 메뉴 */}
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {NAV.map((item) => {
+        {navItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -121,7 +144,6 @@ export function Sidebar() {
           );
         })}
 
-        {/* 변화 분석 토글 */}
         <button
           type="button"
           onClick={onChangeClick}
@@ -142,7 +164,6 @@ export function Sidebar() {
         </button>
       </nav>
 
-      {/* 하단: 로그아웃 */}
       <div className="border-t border-slate-500 p-3">
         <form action="/auth/signout" method="post">
           <button type="submit" className={`${itemBase} w-full ${itemIdle}`}>

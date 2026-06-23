@@ -15,9 +15,11 @@ export const useChangeAnalysis = () => useContext(ChangeContext);
 
 export function AppShell({
   email,
+  isAdmin,
   children,
 }: {
   email: string | null;
+  isAdmin: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -36,7 +38,7 @@ export function AppShell({
     <ChangeContext.Provider
       value={{ showChange, toggle: () => setShowChange((value) => !value) }}
     >
-      <Sidebar />
+      <Sidebar isAdmin={isAdmin} />
       <div className="min-h-full md:pl-60">{children}</div>
     </ChangeContext.Provider>
   );
