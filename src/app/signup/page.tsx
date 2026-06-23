@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,14 +17,30 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
+    const response = await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), password }),
+    });
+
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+
+    if (!response.ok) {
+      setError(result.error ?? "회원가입에 실패했습니다.");
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
 
-    if (error) {
-      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+    if (signInError) {
+      setError("가입은 완료됐지만 자동 로그인에 실패했습니다. 로그인 페이지에서 다시 로그인해 주세요.");
       setLoading(false);
       return;
     }
@@ -40,13 +56,13 @@ export default function LoginPage() {
         className="w-full max-w-sm space-y-5 rounded-xl border border-slate-200 bg-white p-8 shadow-sm"
       >
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold text-slate-900">로그인</h1>
-          <p className="text-sm text-slate-500">네이버 광고 애널라이저</p>
+          <h1 className="text-xl font-semibold text-slate-900">회원가입</h1>
+          <p className="text-sm text-slate-500">마케팅 애널라이저 계정 만들기</p>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-            아이디 (이메일)
+            이메일
           </label>
           <input
             id="email"
@@ -56,7 +72,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-            placeholder="you@bjchango.com"
+            placeholder="you@example.com"
           />
         </div>
 
@@ -67,8 +83,9 @@ export default function LoginPage() {
           <input
             id="password"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             required
+            minLength={4}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
@@ -86,13 +103,13 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
         >
-          {loading ? "로그인 중..." : "로그인"}
+          {loading ? "가입 중..." : "회원가입"}
         </button>
 
         <p className="text-center text-sm text-slate-500">
-          계정이 없나요?{" "}
-          <Link href="/signup" className="font-medium text-slate-900 underline-offset-4 hover:underline">
-            회원가입
+          이미 계정이 있나요?{" "}
+          <Link href="/login" className="font-medium text-slate-900 underline-offset-4 hover:underline">
+            로그인
           </Link>
         </p>
       </form>

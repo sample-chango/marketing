@@ -79,3 +79,14 @@ src/
     supabase/                 client / server / admin
 supabase/migrations/          DB 스키마
 ```
+
+
+## 회원가입 허용
+
+앱의 공개 회원가입은 서버 환경변수 SIGNUP_ENABLED로 제어합니다.
+
+- SIGNUP_ENABLED=true: /signup에서 이메일/비밀번호 회원가입 허용
+- SIGNUP_ENABLED=false 또는 미설정: 회원가입 차단
+
+Vercel에서는 Project Settings > Environment Variables에서 SIGNUP_ENABLED 값을 설정한 뒤 Production을 재배포합니다.
+Supabase 대시보드의 일반 공개 가입은 닫아두고, 이 앱의 서버 API를 통해서만 가입을 열고 닫는 구성을 권장합니다.
