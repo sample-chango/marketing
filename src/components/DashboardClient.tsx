@@ -18,7 +18,7 @@ import {
   fmtRoas,
   type DerivedMetrics,
 } from "@/lib/metrics";
-import { CategoryDonut } from "@/components/CategoryDonut";
+import { CategoryBars } from "@/components/CategoryBars";
 import { TrendChart } from "@/components/TrendChart";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
@@ -34,6 +34,15 @@ type MetricKey =
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
 const mmdd = (iso: string) => iso.slice(5).replace("-", ".");
 const rowDate = (r: MetricRow) => r.period_end;
+
+const BRAND = {
+  green: "#03C75A",
+  mint: "#12C8A8",
+  cyan: "#20B7E8",
+  blue: "#5B8DEF",
+  violet: "#6F6AF8",
+  purple: "#8B5CF6",
+};
 
 const PRIMARY: Record<
   FunnelStage["key"],
@@ -52,23 +61,23 @@ const TREND_METRICS: {
   fmt: (n: number) => string;
   color: string;
 }[] = [
-  { key: "impressions", label: "노출수", pick: (m) => m.impressions, fmt: fmtInt, color: "#3b82f6" },
-  { key: "clicks", label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt, color: "#10b981" },
-  { key: "cost", label: "광고비", pick: (m) => m.cost, fmt: fmtWon, color: "#f59e0b" },
-  { key: "conversions", label: "전환", pick: (m) => m.conversions, fmt: fmtInt, color: "#8b5cf6" },
-  { key: "conversionValue", label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, color: "#ec4899" },
-  { key: "roas", label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, color: "#0ea5e9" },
+  { key: "impressions", label: "노출수", pick: (m) => m.impressions, fmt: fmtInt, color: BRAND.blue },
+  { key: "clicks", label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt, color: BRAND.green },
+  { key: "cost", label: "광고비", pick: (m) => m.cost, fmt: fmtWon, color: BRAND.violet },
+  { key: "conversions", label: "전환", pick: (m) => m.conversions, fmt: fmtInt, color: BRAND.purple },
+  { key: "conversionValue", label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, color: BRAND.mint },
+  { key: "roas", label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, color: BRAND.cyan },
 ];
 
 const PRODUCT_PALETTE = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#8b5cf6",
-  "#ec4899",
-  "#0ea5e9",
-  "#ef4444",
-  "#14b8a6",
+  BRAND.green,
+  BRAND.mint,
+  BRAND.cyan,
+  BRAND.blue,
+  BRAND.violet,
+  BRAND.purple,
+  "#4F46E5",
+  "#0EA5E9",
 ];
 
 const CHANGE_COLS: {
@@ -222,7 +231,7 @@ function buildIssues(cur: MetricRow[], base: MetricRow[]): Issue[] {
 
 function Bar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div className="h-2 flex-1 rounded-full bg-slate-100">
+    <div className="h-2 flex-1 rounded-full bg-[#EEF5FF]">
       <div
         className="h-2 rounded-full"
         style={{ width: `${Math.max(2, Math.min(100, pct))}%`, background: color }}
@@ -246,7 +255,7 @@ function Delta({
   const up = curr >= prev;
   const good = up === goodWhenUp;
   return (
-    <span className={`text-[11px] ${good ? "text-emerald-600" : "text-red-500"}`}>
+    <span className={`text-[11px] ${good ? "text-[#03C75A]" : "text-red-500"}`}>
       {up ? "▲" : "▼"} {Math.abs(delta * 100).toFixed(1)}%
     </span>
   );
@@ -486,7 +495,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       {/* 본문 */}
       <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
       {!data.configured && (
-        <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
+        <Banner tone="purple">Supabase 환경변수가 설정되지 않았습니다.</Banner>
       )}
       {data.configured && !data.hasData && (
         <Banner tone="blue">
@@ -497,7 +506,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 변화 분석 표 */}
       {showChange && (
-        <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-[#B9F5D0] bg-white p-6 shadow-sm">
           <h3 className="mb-3 font-semibold text-slate-800">
             변화 분석{" "}
             <span className="text-sm font-normal text-slate-400">
@@ -558,7 +567,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
         <button
           onClick={() => setBudgetOpen((v) => !v)}
-          className="rounded-2xl bg-white p-6 text-left shadow-sm transition hover:ring-2 hover:ring-emerald-200"
+          className="rounded-2xl bg-white p-6 text-left shadow-sm transition hover:ring-2 hover:ring-[#B9F5D0]"
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-500">
@@ -567,7 +576,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 ({fmtWon(data.dailyBudget)}/일 × {days}일)
               </span>
             </span>
-            <span className="text-[11px] text-emerald-600">
+            <span className="text-[11px] text-[#03C75A]">
               {budgetOpen ? "닫기 ▲" : "집행내역 ▼"}
             </span>
           </div>
@@ -580,7 +589,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               className={
                 execRate && execRate > 1
                   ? "font-semibold text-red-500"
-                  : "font-semibold text-emerald-600"
+                  : "font-semibold text-[#03C75A]"
               }
             >
               {execRate != null ? fmtPct(execRate) : "-"}
@@ -590,7 +599,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       </div>
 
       {budgetOpen && (
-        <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-[#B9F5D0] bg-white p-6 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-slate-800">예산 집행 내역</h3>
             <div className="text-sm text-slate-500">
@@ -598,7 +607,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <b className="text-slate-700">{fmtWon(o.cost)}</b> · 잔여{" "}
               <b
                 className={
-                  effBudget - o.cost < 0 ? "text-red-500" : "text-emerald-600"
+                  effBudget - o.cost < 0 ? "text-red-500" : "text-[#03C75A]"
                 }
               >
                 {fmtWon(effBudget - o.cost)}
@@ -627,9 +636,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </div>
       )}
 
-      {/* 도넛 카드 3개 */}
+      {/* 카테고리 비중 막대 카드 3개 */}
       <div className="grid gap-5 md:grid-cols-3">
-        <DonutCard
+        <BreakdownCard
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
           wow={
@@ -637,7 +646,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           }
           slices={slicesOf((m) => m.conversions)}
         />
-        <DonutCard
+        <BreakdownCard
           title="총매출액"
           value={fmtWon(o.conversionValue)}
           wow={
@@ -645,7 +654,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           }
           slices={slicesOf((m) => m.conversionValue)}
         />
-        <DonutCard
+        <BreakdownCard
           title="총광고비"
           value={fmtWon(o.cost)}
           wow={
@@ -691,8 +700,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     onClick={() => setTrendKey(t.key)}
                     className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                       trendKey === t.key
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                        ? "bg-[#5B8DEF] text-white"
+                        : "bg-[#F1F6FF] text-[#6280B8] hover:bg-[#E6F0FF]"
                     }`}
                   >
                     {t.label}
@@ -737,20 +746,20 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   onClick={() => setStageKey(s.key)}
                   className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
                     selected
-                      ? "border-emerald-500 ring-2 ring-emerald-200"
+                      ? "border-[#03C75A] ring-2 ring-[#B9F5D0]"
                       : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
                   <div
                     className={`px-4 py-2 text-center text-sm font-semibold text-white ${
-                      selected ? "bg-emerald-600" : "bg-slate-400"
+                      selected ? "bg-[#03C75A]" : "bg-[#8FA6D8]"
                     }`}
                   >
                     {s.label}
                   </div>
                   <div
                     className={`space-y-2 px-4 py-4 ${
-                      selected ? "bg-emerald-50" : "bg-slate-50"
+                      selected ? "bg-[#F0FFF6]" : "bg-[#F5F8FF]"
                     }`}
                   >
                     {s.metrics.map((m) => (
@@ -862,10 +871,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   key={i}
                   className={`flex items-start gap-3 rounded-xl border p-3 ${
                     is.tone === "up"
-                      ? "border-emerald-200 bg-emerald-50"
+                      ? "border-[#B9F5D0] bg-[#F0FFF6]"
                       : is.tone === "warn"
-                        ? "border-amber-200 bg-amber-50"
-                        : "border-slate-200 bg-slate-50"
+                        ? "border-[#D4C7FF] bg-[#F7F4FF]"
+                        : "border-[#DCE7FF] bg-[#F5F8FF]"
                   }`}
                 >
                   <span className="text-lg leading-none">{is.emoji}</span>
@@ -1049,9 +1058,9 @@ function RangeCalendar({
                     disabled
                       ? "cursor-default text-slate-300"
                       : isEdge(day)
-                        ? "bg-emerald-600 font-semibold text-white"
+                        ? "bg-[#03C75A] font-semibold text-white"
                         : within(day)
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-[#DFFBEA] text-[#027A38]"
                           : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
@@ -1169,7 +1178,7 @@ function DetailTable({
   );
 }
 
-function DonutCard({
+function BreakdownCard({
   title,
   value,
   wow,
@@ -1190,7 +1199,7 @@ function DonutCard({
         {wow}
       </div>
       <div className="mt-3">
-        <CategoryDonut slices={slices} />
+        <CategoryBars slices={slices} />
       </div>
     </div>
   );
@@ -1210,8 +1219,8 @@ function Tab({
       onClick={onClick}
       className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
         active
-          ? "bg-slate-700 text-white"
-          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          ? "bg-[#03C75A] text-white"
+          : "bg-[#F1F6FF] text-[#6280B8] hover:bg-[#E6F0FF]"
       }`}
     >
       {children}
@@ -1237,12 +1246,12 @@ function Banner({
   tone,
   children,
 }: {
-  tone: "amber" | "blue";
+  tone: "purple" | "blue";
   children: React.ReactNode;
 }) {
   const tones = {
-    amber: "border-amber-200 bg-amber-50 text-amber-800",
-    blue: "border-blue-200 bg-blue-50 text-blue-800",
+    purple: "border-[#D4C7FF] bg-[#F7F4FF] text-[#5B3FD6]",
+    blue: "border-[#BFD5FF] bg-[#F1F6FF] text-[#2F5FB8]",
   };
   return (
     <div className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>

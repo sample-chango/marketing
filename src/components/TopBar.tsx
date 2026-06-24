@@ -14,11 +14,11 @@ export function TopBar({
   maxWidth?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-30 w-full border-b border-[#DCE7FF] bg-white/95 backdrop-blur">
       <div
         className={`mx-auto flex ${maxWidth} flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-8`}
       >
-        <h1 className="text-xl font-semibold text-green-600">{title}</h1>
+        <h1 className="text-xl font-semibold text-[#03A84E]">{title}</h1>
         {children && (
           <div className="flex flex-wrap items-center gap-2">{children}</div>
         )}

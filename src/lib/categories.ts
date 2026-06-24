@@ -12,14 +12,14 @@ export type CategorySlug = (typeof CATEGORIES)[number]["slug"];
 
 export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug) as CategorySlug[];
 
-/** 카테고리별 색상 (도넛/범례 공통) */
+/** 카테고리별 색상 (스마트스토어 그린/블루/퍼플 톤) */
 export const CATEGORY_COLORS: Record<string, string> = {
-  wallpaper: "#10b981", // 벽지 - emerald
-  flooring: "#3b82f6", // 마루 - blue
-  jangpan: "#f59e0b", // 장판 - amber
-  film: "#8b5cf6", // 필름 - violet
-  bestpack: "#ec4899", // 베스트팩 - pink
-  signature: "#64748b", // 시그니처매치 - slate
+  wallpaper: "#03C75A", // 벽지 - smartstore green
+  flooring: "#12C8A8", // 마루 - mint green
+  jangpan: "#20B7E8", // 장판 - cyan blue
+  film: "#5B8DEF", // 필름 - brand blue
+  bestpack: "#6F6AF8", // 베스트팩 - blue violet
+  signature: "#8B5CF6", // 시그니처매치 - purple
 };
 
 export function categoryLabel(slug: string): string {

@@ -99,8 +99,8 @@ const ADMIN_NAV: NavItem[] = [
 
 const itemBase =
   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition";
-const itemActive = "bg-emerald-600 text-white";
-const itemIdle = "text-slate-200 hover:bg-slate-500 hover:text-white";
+const itemActive = "bg-white text-[#03A84E] shadow-sm";
+const itemIdle = "text-white/80 hover:bg-white/15 hover:text-white";
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
@@ -118,7 +118,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-500 bg-slate-600 text-slate-100 md:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#4BBDEB]/30 bg-gradient-to-b from-[#03C75A] via-[#17BFD6] to-[#6F6AF8] text-white md:flex">
       <div className="flex items-center gap-4 px-5 py-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -164,7 +164,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         </button>
       </nav>
 
-      <div className="border-t border-slate-500 p-3">
+      <div className="border-t border-white/20 p-3">
         <form action="/auth/signout" method="post">
           <button type="submit" className={`${itemBase} w-full ${itemIdle}`}>
             <svg
