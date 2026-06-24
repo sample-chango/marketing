@@ -47,7 +47,7 @@ const BRAND = {
 const CARD_CLASS =
   "rounded-lg border border-[#D8DEE8] bg-white p-6 shadow-[0_10px_28px_rgba(66,80,102,0.08)]";
 const ACTIVE_CHIP_CLASS =
-  "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
+  "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(3,199,90,0.24)]";
 const IDLE_CHIP_CLASS =
   "border border-[#DDE3EB] bg-white text-[#4F5B6A] shadow-[0_2px_6px_rgba(66,80,102,0.06)] hover:bg-[#F3F6FA]";
 
@@ -745,7 +745,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <div
                     className={`px-4 py-2 text-center text-sm font-semibold text-white ${
                       selected
-                        ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6]"
+                        ? "bg-[#03C75A]"
                         : "bg-[#465466]"
                     }`}
                   >
