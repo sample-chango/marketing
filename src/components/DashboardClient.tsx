@@ -539,19 +539,19 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
       {/* 상단 카드: ROAS / 예산 */}
-      <div className="grid gap-5 md:grid-cols-2">
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
+      <div className="grid gap-5 md:grid-cols-3">
+        <div className="rounded-2xl bg-white p-6 shadow-sm md:col-span-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-500">ROAS</span>
             <WoW
               curr={o.roas}
               prev={base?.roas ?? null}
               fmt={fmtRoas}
-                           showDetail={showChange}
+              showDetail={showChange}
               onClick={toggleChange}
             />
           </div>
-          <div className="mt-2 text-4xl font-bold text-slate-900">
+          <div className="mt-2 text-5xl font-bold text-slate-900">
             {fmtRoas(o.roas)}
           </div>
         </div>
@@ -571,7 +571,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               {budgetOpen ? "닫기 ▲" : "집행내역 ▼"}
             </span>
           </div>
-          <div className="mt-2 text-4xl font-bold text-slate-900">
+          <div className="mt-2 text-2xl font-bold text-slate-900">
             {fmtWon(effBudget)}
           </div>
           <div className="mt-1 text-xs text-slate-400">
