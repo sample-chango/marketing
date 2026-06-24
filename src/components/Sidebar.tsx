@@ -99,8 +99,9 @@ const ADMIN_NAV: NavItem[] = [
 
 const itemBase =
   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition";
-const itemActive = "bg-white text-[#03A84E] shadow-sm";
-const itemIdle = "text-white/80 hover:bg-white/15 hover:text-white";
+const itemActive =
+  "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm";
+const itemIdle = "text-slate-600 hover:bg-slate-100 hover:text-slate-950";
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
@@ -118,7 +119,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#4BBDEB]/30 bg-gradient-to-b from-[#03C75A] via-[#17BFD6] to-[#6F6AF8] text-white md:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-200 bg-white text-slate-900 md:flex">
       <div className="flex items-center gap-4 px-5 py-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -126,7 +127,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
           alt="스마트스토어"
           className="h-8 w-8 rounded-lg"
         />
-        <span className="text-lg font-bold text-white">스마트스토어</span>
+        <span className="text-lg font-bold text-slate-950">스마트스토어</span>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
@@ -164,7 +165,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         </button>
       </nav>
 
-      <div className="border-t border-white/20 p-3">
+      <div className="border-t border-slate-200 p-3">
         <form action="/auth/signout" method="post">
           <button type="submit" className={`${itemBase} w-full ${itemIdle}`}>
             <svg

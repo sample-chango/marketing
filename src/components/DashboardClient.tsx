@@ -679,7 +679,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 <button
                   onClick={() => setTrendByCat(false)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    !trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                    !trendByCat
+                      ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm"
+                      : "text-[#6280B8]"
                   }`}
                 >
                   합산
@@ -687,7 +689,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 <button
                   onClick={() => setTrendByCat(true)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    trendByCat ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+                    trendByCat
+                      ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm"
+                      : "text-[#6280B8]"
                   }`}
                 >
                   {cat === "all" ? "카테고리별" : "제품별"}
@@ -700,7 +704,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     onClick={() => setTrendKey(t.key)}
                     className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                       trendKey === t.key
-                        ? "bg-[#5B8DEF] text-white"
+                        ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm"
                         : "bg-[#F1F6FF] text-[#6280B8] hover:bg-[#E6F0FF]"
                     }`}
                   >
@@ -746,13 +750,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   onClick={() => setStageKey(s.key)}
                   className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
                     selected
-                      ? "border-[#03C75A] ring-2 ring-[#B9F5D0]"
+                      ? "border-transparent ring-2 ring-[#B9F5D0]"
                       : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
                   <div
                     className={`px-4 py-2 text-center text-sm font-semibold text-white ${
-                      selected ? "bg-[#03C75A]" : "bg-[#8FA6D8]"
+                      selected
+                        ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6]"
+                        : "bg-[#8FA6D8]"
                     }`}
                   >
                     {s.label}
@@ -1058,7 +1064,7 @@ function RangeCalendar({
                     disabled
                       ? "cursor-default text-slate-300"
                       : isEdge(day)
-                        ? "bg-[#03C75A] font-semibold text-white"
+                        ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] font-semibold text-white"
                         : within(day)
                           ? "bg-[#DFFBEA] text-[#027A38]"
                           : "text-slate-700 hover:bg-slate-100"
@@ -1219,7 +1225,7 @@ function Tab({
       onClick={onClick}
       className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
         active
-          ? "bg-[#03C75A] text-white"
+          ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white"
           : "bg-[#F1F6FF] text-[#6280B8] hover:bg-[#E6F0FF]"
       }`}
     >
