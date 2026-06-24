@@ -47,7 +47,7 @@ const BRAND = {
 const CARD_CLASS =
   "rounded-lg border border-[#D8DEE8] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const ACTIVE_CHIP_CLASS =
-  "bg-[#03C75A] text-white shadow-[0_6px_12px_rgba(3,199,90,0.14)]";
+  "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
 const IDLE_CHIP_CLASS =
   "border border-[#DDE3EB] bg-white text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F3F6FA]";
 
@@ -738,7 +738,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   onClick={() => setStageKey(s.key)}
                   className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
                     selected
-                      ? "border-transparent shadow-[0_6px_14px_rgba(3,199,90,0.08)] ring-2 ring-[#03C75A]/25"
+                      ? "border-transparent shadow-[0_10px_22px_rgba(3,199,90,0.16)] ring-2 ring-[#03C75A]/25"
                       : "border-[#D8DEE8] hover:border-[#AEB8C7] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
