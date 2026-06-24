@@ -71,12 +71,12 @@ export function CategoryBars({
               )}
             </div>
             <div
-              className={`overflow-hidden rounded-full bg-[#EEF5FF] ${
+              className={`overflow-hidden rounded-full bg-[#EDF1F6] ${
                 isPrimary ? "h-3" : "h-2.5"
               }`}
             >
               <div
-                className="h-full rounded-full shadow-[0_4px_12px_rgba(3,199,90,0.18)]"
+                className="h-full rounded-full shadow-[0_5px_12px_rgba(66,80,102,0.14)]"
                 style={{
                   width: `${width}%`,
                   background: `linear-gradient(90deg, ${d.color}, color-mix(in srgb, ${d.color} 72%, white))`,

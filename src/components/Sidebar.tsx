@@ -98,10 +98,11 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 const itemBase =
-  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition";
+  "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition";
 const itemActive =
-  "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm";
-const itemIdle = "text-slate-600 hover:bg-slate-100 hover:text-slate-950";
+  "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-[0_14px_28px_rgba(3,199,90,0.24)]";
+const itemIdle =
+  "border border-transparent text-[#EEF2F7] hover:border-[#667384] hover:bg-[#3D4A5A] hover:text-white";
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
@@ -119,18 +120,23 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-200 bg-white text-slate-900 md:flex">
-      <div className="flex items-center gap-4 px-5 py-5">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-[#3A4656] bg-[#465466] text-white shadow-[12px_0_34px_rgba(37,48,63,0.16)] md:flex">
+      <div className="px-6 pb-7 pt-10 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo.png"
           alt="스마트스토어"
-          className="h-8 w-8 rounded-lg"
+          className="mx-auto h-20 w-20 rounded-full bg-black shadow-[0_10px_24px_rgba(0,0,0,0.28)]"
         />
-        <span className="text-lg font-bold text-slate-950">스마트스토어</span>
+        <div className="mt-5 text-2xl font-bold leading-none text-white">
+          샘플창고
+        </div>
+        <div className="mt-2 text-sm font-semibold text-[#B5BECA]">
+          마케팅 대시보드
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-2">
+      <nav className="flex-1 space-y-2 border-t border-[#556272] px-5 py-5">
         {navItems.map((item) => {
           const active = pathname === item.href;
           return (
@@ -165,7 +171,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         </button>
       </nav>
 
-      <div className="border-t border-slate-200 p-3">
+      <div className="border-t border-[#556272] p-5">
         <form action="/auth/signout" method="post">
           <button type="submit" className={`${itemBase} w-full ${itemIdle}`}>
             <svg

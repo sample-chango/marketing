@@ -29,7 +29,7 @@ export default async function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full overflow-x-hidden bg-[#EDF3F4] text-slate-900">
+      <body className="min-h-full overflow-x-hidden bg-[#EEF2F6] text-slate-900">
         <AppShell email={user?.email ?? null} isAdmin={isAdminUser(user)}>
           {children}
         </AppShell>

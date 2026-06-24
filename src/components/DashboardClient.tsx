@@ -44,6 +44,13 @@ const BRAND = {
   purple: "#8B5CF6",
 };
 
+const CARD_CLASS =
+  "rounded-lg border border-[#D8DEE8] bg-white p-6 shadow-[0_10px_28px_rgba(66,80,102,0.08)]";
+const ACTIVE_CHIP_CLASS =
+  "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
+const IDLE_CHIP_CLASS =
+  "border border-[#DDE3EB] bg-white text-[#4F5B6A] shadow-[0_2px_6px_rgba(66,80,102,0.06)] hover:bg-[#F3F6FA]";
+
 const PRIMARY: Record<
   FunnelStage["key"],
   { label: string; pick: (m: DerivedMetrics) => number; fmt: (n: number) => string }
@@ -506,7 +513,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 변화 분석 표 */}
       {showChange && (
-        <div className="rounded-2xl border border-[#B9F5D0] bg-white p-6 shadow-sm">
+        <div className={CARD_CLASS}>
           <h3 className="mb-3 font-semibold text-slate-800">
             변화 분석{" "}
             <span className="text-sm font-normal text-slate-400">
@@ -549,7 +556,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 상단 카드: ROAS */}
       <div className="grid gap-5">
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-500">ROAS</span>
             <WoW
@@ -603,7 +610,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           slices={slicesOf((m) => m.cost)}
         >
           {costDetailOpen && (
-            <div className="rounded-xl bg-[#F7FAFB] p-3 text-xs text-slate-500">
+            <div className="rounded-lg border border-[#E1E7EF] bg-[#F6F8FB] p-3 text-xs text-slate-500">
               <div className="flex items-center justify-between gap-3">
                 <span>기간 예산</span>
                 <span className="tabular-nums font-semibold text-slate-700">
@@ -647,7 +654,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 기간 내 추이 (중앙) */}
       {data.hasData && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className={CARD_CLASS}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-slate-800">
               기간 내 추이{" "}
@@ -656,13 +663,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+              <div className="inline-flex rounded-lg border border-[#DDE3EB] bg-[#F3F6FA] p-0.5 shadow-inner">
                 <button
                   onClick={() => setTrendByCat(false)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                     !trendByCat
-                      ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm"
-                      : "text-[#6280B8]"
+                      ? ACTIVE_CHIP_CLASS
+                      : "text-[#4F5B6A]"
                   }`}
                 >
                   합산
@@ -671,8 +678,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   onClick={() => setTrendByCat(true)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                     trendByCat
-                      ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm"
-                      : "text-[#6280B8]"
+                      ? ACTIVE_CHIP_CLASS
+                      : "text-[#4F5B6A]"
                   }`}
                 >
                   {cat === "all" ? "카테고리별" : "제품별"}
@@ -685,8 +692,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     onClick={() => setTrendKey(t.key)}
                     className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                       trendKey === t.key
-                        ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-sm"
-                        : "bg-[#F1F6FF] text-[#6280B8] hover:bg-[#E6F0FF]"
+                        ? ACTIVE_CHIP_CLASS
+                        : IDLE_CHIP_CLASS
                     }`}
                   >
                     {t.label}
@@ -710,7 +717,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
       {/* 카테고리 탭 + 퍼널 + 상세 분석 */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
+      <section className={CARD_CLASS}>
         <div className="mb-5 flex flex-wrap gap-2">
           <Tab active={cat === "all"} onClick={() => setCat("all")}>
             전체
@@ -731,22 +738,22 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   onClick={() => setStageKey(s.key)}
                   className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
                     selected
-                      ? "border-transparent ring-2 ring-[#B9F5D0]"
-                      : "border-slate-200 hover:border-slate-300"
+                      ? "border-transparent shadow-[0_10px_22px_rgba(3,199,90,0.16)] ring-2 ring-[#03C75A]/25"
+                      : "border-[#D8DEE8] hover:border-[#AEB8C7] hover:shadow-[0_6px_16px_rgba(66,80,102,0.08)]"
                   }`}
                 >
                   <div
                     className={`px-4 py-2 text-center text-sm font-semibold text-white ${
                       selected
                         ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6]"
-                        : "bg-[#8FA6D8]"
+                        : "bg-[#465466]"
                     }`}
                   >
                     {s.label}
                   </div>
                   <div
                     className={`space-y-2 px-4 py-4 ${
-                      selected ? "bg-[#F0FFF6]" : "bg-[#F5F8FF]"
+                      selected ? "bg-[#F4FFF8]" : "bg-[#F6F8FB]"
                     }`}
                   >
                     {s.metrics.map((m) => (
@@ -838,7 +845,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 주요 변화 이슈 (전날 대비) */}
       {data.hasData && (
-        <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <section className={CARD_CLASS}>
           <h2 className="text-lg font-semibold text-slate-800">주요 변화 이슈</h2>
           <p className="mb-4 text-sm text-slate-400">
             {periodText} vs 전날({basePeriodText}) · 변화가 큰 순
@@ -858,10 +865,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   key={i}
                   className={`flex items-start gap-3 rounded-xl border p-3 ${
                     is.tone === "up"
-                      ? "border-[#B9F5D0] bg-[#F0FFF6]"
+                      ? "border-[#BFEFD2] bg-[#F4FFF8]"
                       : is.tone === "warn"
-                        ? "border-[#D4C7FF] bg-[#F7F4FF]"
-                        : "border-[#DCE7FF] bg-[#F5F8FF]"
+                        ? "border-[#D9D1FF] bg-[#F8F6FF]"
+                        : "border-[#D8DEE8] bg-[#F6F8FB]"
                   }`}
                 >
                   <span className="text-lg leading-none">{is.emoji}</span>
@@ -993,20 +1000,20 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+        className="flex items-center gap-2 rounded-lg border border-[#D8DEE8] bg-white px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_2px_6px_rgba(66,80,102,0.06)] hover:bg-[#F3F6FA]"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[#D8DEE8] bg-white p-3 shadow-[0_16px_32px_rgba(66,80,102,0.16)]">
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
               onClick={() => canPrev && shift(-1)}
               disabled={!canPrev}
-              className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+              className="rounded-md px-2 py-1 text-[#6B7480] hover:bg-[#F3F6FA] disabled:opacity-30"
             >
               ‹
             </button>
@@ -1017,7 +1024,7 @@ function RangeCalendar({
               type="button"
               onClick={() => canNext && shift(1)}
               disabled={!canNext}
-              className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+              className="rounded-md px-2 py-1 text-[#6B7480] hover:bg-[#F3F6FA] disabled:opacity-30"
             >
               ›
             </button>
@@ -1045,10 +1052,10 @@ function RangeCalendar({
                     disabled
                       ? "cursor-default text-slate-300"
                       : isEdge(day)
-                        ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] font-semibold text-white"
+                        ? `${ACTIVE_CHIP_CLASS} font-semibold`
                         : within(day)
-                          ? "bg-[#DFFBEA] text-[#027A38]"
-                          : "text-slate-700 hover:bg-slate-100"
+                          ? "bg-[#E8F8EF] text-[#027A38]"
+                          : "text-slate-700 hover:bg-[#F3F6FA]"
                   }`}
                 >
                   {parse(day).d}
@@ -1121,7 +1128,7 @@ function DetailTable({
       </h3>
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-100 text-slate-500">
+          <thead className="bg-[#F3F6FA] text-slate-500">
             <tr>
               <th className="px-3 py-2.5 text-left font-medium">상품명</th>
               {cat === "all" && (
@@ -1183,7 +1190,7 @@ function BreakdownCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-white p-6 shadow-sm">
+    <div className={`min-w-0 ${CARD_CLASS}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-medium text-slate-500">{title}</div>
@@ -1216,8 +1223,8 @@ function Tab({
       onClick={onClick}
       className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
         active
-          ? "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white"
-          : "bg-[#F1F6FF] text-[#6280B8] hover:bg-[#E6F0FF]"
+          ? ACTIVE_CHIP_CLASS
+          : IDLE_CHIP_CLASS
       }`}
     >
       {children}
@@ -1247,8 +1254,8 @@ function Banner({
   children: React.ReactNode;
 }) {
   const tones = {
-    purple: "border-[#D4C7FF] bg-[#F7F4FF] text-[#5B3FD6]",
-    blue: "border-[#BFD5FF] bg-[#F1F6FF] text-[#2F5FB8]",
+    purple: "border-[#D9D1FF] bg-[#F8F6FF] text-[#5B3FD6]",
+    blue: "border-[#D8DEE8] bg-white text-[#2F5FB8]",
   };
   return (
     <div className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
