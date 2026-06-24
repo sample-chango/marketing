@@ -7,7 +7,13 @@ export interface CategorySlice {
 }
 
 /** 카테고리 비중 막대그래프 */
-export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
+export function CategoryBars({
+  slices,
+  valueFormatter,
+}: {
+  slices: CategorySlice[];
+  valueFormatter?: (value: number) => string;
+}) {
   const total = slices.reduce((s, d) => s + d.value, 0);
   const data = slices
     .filter((d) => d.value > 0)
@@ -39,15 +45,30 @@ export function CategoryBars({ slices }: { slices: CategorySlice[] }) {
                 />
                 <span className="truncate">{d.label}</span>
               </span>
-              <span
-                className={`tabular-nums ${
-                  isPrimary
-                    ? "font-bold text-slate-900"
-                    : "font-semibold text-slate-500"
-                }`}
-              >
-                {pct.toFixed(0)}%
-              </span>
+              {valueFormatter ? (
+                <span className="flex shrink-0 items-baseline gap-1 tabular-nums">
+                  <span
+                    className={
+                      isPrimary
+                        ? "font-bold text-slate-900"
+                        : "font-semibold text-slate-600"
+                    }
+                  >
+                    {valueFormatter(d.value)}
+                  </span>
+                  <span className="text-slate-300">{pct.toFixed(0)}%</span>
+                </span>
+              ) : (
+                <span
+                  className={`tabular-nums ${
+                    isPrimary
+                      ? "font-bold text-slate-900"
+                      : "font-semibold text-slate-500"
+                  }`}
+                >
+                  {pct.toFixed(0)}%
+                </span>
+              )}
             </div>
             <div
               className={`overflow-hidden rounded-full bg-[#EEF5FF] ${

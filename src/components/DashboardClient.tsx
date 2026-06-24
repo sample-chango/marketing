@@ -312,7 +312,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
   const [trendByCat, setTrendByCat] = useState(true);
   const { showChange, toggle: toggleChange } = useChangeAnalysis();
-  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [costDetailOpen, setCostDetailOpen] = useState(false);
 
   // 유효 범위 (데이터 범위로 보정)
   let rs = rangeStart && allDates.includes(rangeStart) ? rangeStart : earliest;
@@ -547,9 +547,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </div>
       )}
 
-      {/* 상단 카드: ROAS / 예산 */}
-      <div className="grid gap-5 md:grid-cols-3">
-        <div className="rounded-2xl bg-white p-6 shadow-sm md:col-span-2">
+      {/* 상단 카드: ROAS */}
+      <div className="grid gap-5">
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-500">ROAS</span>
             <WoW
@@ -564,77 +564,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             {fmtRoas(o.roas)}
           </div>
         </div>
-
-        <button
-          onClick={() => setBudgetOpen((v) => !v)}
-          className="rounded-2xl bg-white p-6 text-left shadow-sm transition hover:ring-2 hover:ring-[#B9F5D0]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-500">
-              예산{" "}
-              <span className="text-xs text-slate-400">
-                ({fmtWon(data.dailyBudget)}/일 × {days}일)
-              </span>
-            </span>
-            <span className="text-[11px] text-[#03C75A]">
-              {budgetOpen ? "닫기 ▲" : "집행내역 ▼"}
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">
-            {fmtWon(effBudget)}
-          </div>
-          <div className="mt-1 text-xs text-slate-400">
-            집행 {fmtWon(o.cost)} · 집행률{" "}
-            <span
-              className={
-                execRate && execRate > 1
-                  ? "font-semibold text-red-500"
-                  : "font-semibold text-[#03C75A]"
-              }
-            >
-              {execRate != null ? fmtPct(execRate) : "-"}
-            </span>
-          </div>
-        </button>
       </div>
-
-      {budgetOpen && (
-        <div className="rounded-2xl border border-[#B9F5D0] bg-white p-6 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold text-slate-800">예산 집행 내역</h3>
-            <div className="text-sm text-slate-500">
-              예산 <b className="text-slate-700">{fmtWon(effBudget)}</b> · 집행{" "}
-              <b className="text-slate-700">{fmtWon(o.cost)}</b> · 잔여{" "}
-              <b
-                className={
-                  effBudget - o.cost < 0 ? "text-red-500" : "text-[#03C75A]"
-                }
-              >
-                {fmtWon(effBudget - o.cost)}
-              </b>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {[...byCategory]
-              .sort((a, b) => b.metrics.cost - a.metrics.cost)
-              .map((c) => {
-                const share = o.cost > 0 ? c.metrics.cost / o.cost : 0;
-                return (
-                  <div key={c.slug} className="flex items-center gap-3 text-sm">
-                    <span className="w-20 shrink-0 text-slate-600">{c.label}</span>
-                    <Bar pct={share * 100} color={CATEGORY_COLORS[c.slug]} />
-                    <span className="w-28 shrink-0 text-right tabular-nums font-medium text-slate-800">
-                      {fmtWon(c.metrics.cost)}
-                    </span>
-                    <span className="w-12 shrink-0 text-right text-xs text-slate-400">
-                      {fmtPct(share)}
-                    </span>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
 
       {/* 카테고리 비중 막대 카드 3개 */}
       <div className="grid gap-5 md:grid-cols-3">
@@ -660,8 +590,59 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           wow={
             <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} goodWhenUp={false} showDetail={showChange} onClick={toggleChange} />
           }
+          valueFormatter={fmtWon}
+          action={
+            <button
+              type="button"
+              onClick={() => setCostDetailOpen((v) => !v)}
+              className="text-[11px] font-medium text-[#03A84E] hover:text-[#027A38]"
+            >
+              {costDetailOpen ? "집행내역 접기 ▲" : "집행내역 보기 ▼"}
+            </button>
+          }
           slices={slicesOf((m) => m.cost)}
-        />
+        >
+          {costDetailOpen && (
+            <div className="rounded-xl bg-[#F7FAFB] p-3 text-xs text-slate-500">
+              <div className="flex items-center justify-between gap-3">
+                <span>기간 예산</span>
+                <span className="tabular-nums font-semibold text-slate-700">
+                  {fmtWon(effBudget)}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span>일 예산 × 기간</span>
+                <span className="tabular-nums text-slate-400">
+                  {fmtWon(data.dailyBudget)} × {days}일
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span>집행률</span>
+                <span
+                  className={
+                    execRate && execRate > 1
+                      ? "tabular-nums font-semibold text-red-500"
+                      : "tabular-nums font-semibold text-[#03A84E]"
+                  }
+                >
+                  {execRate != null ? fmtPct(execRate) : "-"}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span>잔여</span>
+                <span
+                  className={
+                    effBudget - o.cost < 0
+                      ? "tabular-nums font-semibold text-red-500"
+                      : "tabular-nums font-semibold text-[#03A84E]"
+                  }
+                >
+                  {fmtWon(effBudget - o.cost)}
+                </span>
+              </div>
+            </div>
+          )}
+        </BreakdownCard>
       </div>
 
       {/* 기간 내 추이 (중앙) */}
@@ -1188,25 +1169,35 @@ function BreakdownCard({
   title,
   value,
   wow,
+  action,
   slices,
+  valueFormatter,
+  children,
 }: {
   title: string;
   value: string;
   wow: React.ReactNode;
+  action?: React.ReactNode;
   slices: { label: string; value: number; color: string }[];
+  valueFormatter?: (value: number) => string;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0 rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-medium text-slate-500">{title}</div>
           <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
         </div>
-        {wow}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {wow}
+          {action}
+        </div>
       </div>
       <div className="mt-3">
-        <CategoryBars slices={slices} />
+        <CategoryBars slices={slices} valueFormatter={valueFormatter} />
       </div>
+      {children && <div className="mt-4 border-t border-slate-100 pt-4">{children}</div>}
     </div>
   );
 }
