@@ -45,11 +45,11 @@ const BRAND = {
 };
 
 const CARD_CLASS =
-  "rounded-lg border border-[#D8DEE8] bg-white p-6 shadow-[0_10px_28px_rgba(66,80,102,0.08)]";
+  "rounded-lg border border-[#D8DEE8] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const ACTIVE_CHIP_CLASS =
-  "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(3,199,90,0.24)]";
+  "bg-[#03C75A] text-white shadow-[0_6px_12px_rgba(3,199,90,0.14)]";
 const IDLE_CHIP_CLASS =
-  "border border-[#DDE3EB] bg-white text-[#4F5B6A] shadow-[0_2px_6px_rgba(66,80,102,0.06)] hover:bg-[#F3F6FA]";
+  "border border-[#DDE3EB] bg-white text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F3F6FA]";
 
 const PRIMARY: Record<
   FunnelStage["key"],
@@ -738,8 +738,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   onClick={() => setStageKey(s.key)}
                   className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
                     selected
-                      ? "border-transparent shadow-[0_10px_22px_rgba(3,199,90,0.16)] ring-2 ring-[#03C75A]/25"
-                      : "border-[#D8DEE8] hover:border-[#AEB8C7] hover:shadow-[0_6px_16px_rgba(66,80,102,0.08)]"
+                      ? "border-transparent shadow-[0_6px_14px_rgba(3,199,90,0.08)] ring-2 ring-[#03C75A]/25"
+                      : "border-[#D8DEE8] hover:border-[#AEB8C7] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
                   <div
@@ -1000,14 +1000,14 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-lg border border-[#D8DEE8] bg-white px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_2px_6px_rgba(66,80,102,0.06)] hover:bg-[#F3F6FA]"
+        className="flex items-center gap-2 rounded-lg border border-[#D8DEE8] bg-white px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F3F6FA]"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[#D8DEE8] bg-white p-3 shadow-[0_16px_32px_rgba(66,80,102,0.16)]">
+        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[#D8DEE8] bg-white p-3 shadow-[0_10px_22px_rgba(66,80,102,0.08)]">
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"

@@ -76,7 +76,7 @@ export function CategoryBars({
               }`}
             >
               <div
-                className="h-full rounded-full shadow-[0_5px_12px_rgba(66,80,102,0.14)]"
+                className="h-full rounded-full shadow-[0_4px_10px_rgba(66,80,102,0.08)]"
                 style={{
                   width: `${width}%`,
                   background: `linear-gradient(90deg, ${d.color}, color-mix(in srgb, ${d.color} 72%, white))`,

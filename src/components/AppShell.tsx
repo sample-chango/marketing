@@ -39,7 +39,7 @@ export function AppShell({
       value={{ showChange, toggle: () => setShowChange((value) => !value) }}
     >
       <Sidebar isAdmin={isAdmin} />
-      <div className="min-h-full md:pl-64">{children}</div>
+      <div className="min-h-full md:pl-60">{children}</div>
     </ChangeContext.Provider>
   );
 }
