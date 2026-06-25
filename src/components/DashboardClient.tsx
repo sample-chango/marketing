@@ -734,14 +734,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <Fragment key={s.key}>
                 <button
                   onClick={() => setStageKey(s.key)}
-                  className={`flex min-w-0 flex-col rounded-[15px] border-2 text-left transition ${
+                  className={`flex min-w-0 flex-col rounded-[15px] border text-left transition ${
                     selected
                       ? "border-[#03C75A] bg-[#F4FFF8]"
                       : "border-transparent bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
                   <div
-                    className={`rounded-t-[13px] px-4 py-2 text-center text-sm font-semibold ${
+                    className={`rounded-t-[14px] px-4 py-2 text-center text-sm font-semibold ${
                       selected
                         ? "bg-[#03C75A] text-white"
                         : "bg-[#E4EAF1] text-[#4F5B6A]"
@@ -750,7 +750,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     {s.label}
                   </div>
                   <div
-                    className={`flex-1 space-y-2 rounded-b-[13px] px-4 py-4 ${
+                    className={`flex-1 space-y-2 rounded-b-[14px] px-4 py-4 ${
                       selected ? "bg-[#F4FFF8]" : "bg-[#F6F8FB]"
                     }`}
                   >
@@ -793,23 +793,22 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               }))}
               maxValue={catMax}
               valueFormatter={primary.fmt}
+              showIndex={false}
             />
           </div>
 
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-slate-700">
-                {primary.label} 상위 상품{" "}
-                <span className="font-normal text-slate-400">
-                  · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
-                </span>
+                {primary.label} 상위 상품
               </h3>
               <button
                 type="button"
                 onClick={() => setDetailOpen((open) => !open)}
-                className="rounded-md bg-[#EEF2F6] px-2.5 py-1 text-xs font-medium text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] transition hover:bg-[#E4EAF1]"
+                aria-pressed={detailOpen}
+                className="text-xs font-normal text-slate-400 transition hover:text-slate-600"
               >
-                {detailOpen ? "접기" : "전체"}
+                {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
               </button>
             </div>
             <MetricRankList
@@ -1163,6 +1162,7 @@ function MetricRankList({
   items,
   maxValue,
   valueFormatter,
+  showIndex = true,
 }: {
   items: {
     key: string;
@@ -1174,6 +1174,7 @@ function MetricRankList({
   }[];
   maxValue: number;
   valueFormatter: (value: number) => string;
+  showIndex?: boolean;
 }) {
   if (items.length === 0) {
     return (
@@ -1191,9 +1192,11 @@ function MetricRankList({
           : "text-slate-700 hover:text-slate-900";
         return (
           <li key={item.key} className="flex items-center gap-2.5 text-sm">
-            <span className="w-5 shrink-0 text-right text-xs font-semibold text-slate-400">
-              {index + 1}
-            </span>
+            {showIndex && (
+              <span className="w-5 shrink-0 text-right text-xs font-semibold text-slate-400">
+                {index + 1}
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               {item.onClick ? (
                 <button
