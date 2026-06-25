@@ -665,23 +665,23 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-full border-2 border-[#8B5CF6] bg-white p-1">
+              <div className="inline-flex rounded-md bg-[#EEF2F6] shadow-[0_1px_4px_rgba(66,80,102,0.03)]">
                 <button
                   onClick={() => setTrendByCat(false)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                     !trendByCat
-                      ? "bg-[#8B5CF6] text-white"
-                      : "bg-white text-[#4F5B6A] hover:bg-[#F8F6FF]"
+                      ? "bg-[#465466] text-white"
+                      : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
                   }`}
                 >
                   합산
                 </button>
                 <button
                   onClick={() => setTrendByCat(true)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                     trendByCat
-                      ? "bg-[#8B5CF6] text-white"
-                      : "bg-white text-[#4F5B6A] hover:bg-[#F8F6FF]"
+                      ? "bg-[#465466] text-white"
+                      : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
                   }`}
                 >
                   {cat === "all" ? "카테고리별" : "제품별"}
