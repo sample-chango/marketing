@@ -1214,7 +1214,7 @@ function MetricRankList({
               )}
               <div className="mt-1 grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-2">
                 <Bar pct={(item.value / maxValue) * 100} color={item.color} />
-                <span className="justify-self-end text-right tabular-nums font-semibold text-slate-800">
+                <span className="block w-full pr-10 text-right tabular-nums font-semibold text-slate-800">
                   {valueFormatter(item.value)}
                 </span>
               </div>
