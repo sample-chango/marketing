@@ -581,18 +581,20 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           wow={
             <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} showDetail={showChange} onClick={toggleChange} />
           }
+          valueFormatter={(value) => `${fmtInt(value)}개`}
           slices={slicesOf((m) => m.conversions)}
         />
         <BreakdownCard
-          title="총매출액"
+          title="총 매출액"
           value={fmtWon(o.conversionValue)}
           wow={
             <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} showDetail={showChange} onClick={toggleChange} />
           }
+          valueFormatter={fmtWon}
           slices={slicesOf((m) => m.conversionValue)}
         />
         <BreakdownCard
-          title="총광고비"
+          title="총 광고비"
           value={fmtWon(o.cost)}
           wow={
             <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} goodWhenUp={false} showDetail={showChange} onClick={toggleChange} />

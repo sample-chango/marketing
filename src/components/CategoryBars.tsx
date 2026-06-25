@@ -15,11 +15,9 @@ export function CategoryBars({
   valueFormatter?: (value: number) => string;
 }) {
   const total = slices.reduce((s, d) => s + d.value, 0);
-  const data = slices
-    .filter((d) => d.value > 0)
-    .sort((a, b) => b.value - a.value);
+  const data = [...slices].sort((a, b) => b.value - a.value);
 
-  if (total <= 0) {
+  if (data.length === 0) {
     return (
       <div className="flex min-h-[180px] items-center justify-center text-sm text-slate-300">
         데이터 없음
@@ -30,8 +28,8 @@ export function CategoryBars({
   return (
     <div className="space-y-3 pt-2" data-category-bars="true">
       {data.map((d, index) => {
-        const pct = (d.value / total) * 100;
-        const width = Math.max(4, pct);
+        const pct = total > 0 ? (d.value / total) * 100 : 0;
+        const width = pct > 0 ? Math.max(4, pct) : 0;
         const isPrimary = index === 0;
         return (
           <div key={d.label} className="space-y-1.5">
