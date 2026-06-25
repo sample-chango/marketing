@@ -490,7 +490,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   return (
     <>
       {/* 상단 바: 제목 + 기간 선택(우측). 변화분석/네비/로그아웃은 사이드바 */}
-      <TopBar title="Analytics Dashboard" contentClassName="px-4 md:px-8">
+      <TopBar title="Analytics Dashboard" contentClassName="px-4 py-[18px] md:px-8">
         {/* 기간 범위 선택 (달력 하나) */}
         <RangeCalendar
           start={rs}
@@ -986,7 +986,7 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-lg bg-[#EEF2F6] px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]"
+        className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F8FAFC]"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
