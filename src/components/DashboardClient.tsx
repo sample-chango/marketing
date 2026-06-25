@@ -320,11 +320,16 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [trendByCat, setTrendByCat] = useState(true);
   const { showChange, toggle: toggleChange } = useChangeAnalysis();
   const [costDetailOpen, setCostDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // 유효 범위 (데이터 범위로 보정)
   let rs = rangeStart && allDates.includes(rangeStart) ? rangeStart : earliest;
   let re = rangeEnd && allDates.includes(rangeEnd) ? rangeEnd : latest;
   if (rs && re && rs > re) [rs, re] = [re, rs];
+
+  useEffect(() => {
+    setDetailOpen(false);
+  }, [stageKey, cat, rs, re]);
 
   const inRange = (r: MetricRow) => {
     const d = rowDate(r);
@@ -375,13 +380,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const catMax = Math.max(1, ...catBars.map((b) => b.value));
 
   // 제품명 기준으로 묶어 기간 내 일자별 행을 합산 (동일 상품이 날짜마다 중복되지 않도록)
-  const topRows = [...groupByName(rows).values()]
+  const rankedRows = [...groupByName(rows).values()]
     .map((rs) => {
       const dm = agg(rs);
       return { r: rs[0], dm, v: primary.pick(dm) };
     })
-    .sort((a, b) => b.v - a.v)
-    .slice(0, 10);
+    .sort((a, b) => b.v - a.v);
+  const topRows = rankedRows.slice(0, 6);
   const topMax = Math.max(1, ...topRows.map((t) => t.v));
 
   const slicesOf = (pick: (m: DerivedMetrics) => number) =>
@@ -722,21 +727,21 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           ))}
         </div>
 
-        <div className="flex items-stretch gap-2 overflow-x-auto pb-2">
+        <div className="grid items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
           {FUNNEL_STAGES.map((s, i) => {
             const selected = s.key === stageKey;
             return (
               <Fragment key={s.key}>
                 <button
                   onClick={() => setStageKey(s.key)}
-                  className={`flex min-w-[120px] flex-1 flex-col overflow-hidden rounded-xl text-left transition ${
+                  className={`flex min-w-0 flex-col rounded-[15px] border-2 text-left transition ${
                     selected
-                      ? "outline outline-2 outline-[#03C75A]"
-                      : "bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
+                      ? "border-[#03C75A] bg-[#F4FFF8]"
+                      : "border-transparent bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
                   <div
-                    className={`px-4 py-2 text-center text-sm font-semibold ${
+                    className={`rounded-t-[13px] px-4 py-2 text-center text-sm font-semibold ${
                       selected
                         ? "bg-[#03C75A] text-white"
                         : "bg-[#E4EAF1] text-[#4F5B6A]"
@@ -745,7 +750,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     {s.label}
                   </div>
                   <div
-                    className={`flex-1 space-y-2 px-4 py-4 ${
+                    className={`flex-1 space-y-2 rounded-b-[13px] px-4 py-4 ${
                       selected ? "bg-[#F4FFF8]" : "bg-[#F6F8FB]"
                     }`}
                   >
@@ -763,7 +768,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   </div>
                 </button>
                 {i < FUNNEL_STAGES.length - 1 && (
-                  <div className="flex items-center text-lg text-slate-300">▶</div>
+                  <div className="hidden items-center justify-center px-1 text-lg text-slate-300 md:flex">
+                    ▶
+                  </div>
                 )}
               </Fragment>
             );
@@ -775,68 +782,52 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
               카테고리별 {primary.label}
             </h3>
-            <div className="space-y-2.5">
-              {catBars.map((b) => (
-                <div key={b.slug} className="flex items-center gap-3 text-sm">
-                  <button
-                    onClick={() => setCat(b.slug)}
-                    className={`w-20 shrink-0 text-left ${
-                      cat === b.slug
-                        ? "font-bold text-slate-900"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    {b.label}
-                  </button>
-                  <Bar pct={(b.value / catMax) * 100} color={b.color} />
-                  <span className="w-24 shrink-0 text-right tabular-nums font-medium text-slate-800">
-                    {primary.fmt(b.value)}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <MetricRankList
+              items={catBars.map((b) => ({
+                key: b.slug,
+                label: b.label,
+                value: b.value,
+                color: b.color,
+                active: cat === b.slug,
+                onClick: () => setCat(b.slug),
+              }))}
+              maxValue={catMax}
+              valueFormatter={primary.fmt}
+            />
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">
-              {primary.label} 상위 상품{" "}
-              <span className="font-normal text-slate-400">
-                · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
-              </span>
-            </h3>
-            {topRows.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-400">
-                데이터가 없습니다.
-              </div>
-            ) : (
-              <ol className="space-y-2.5">
-                {topRows.map((t, i) => (
-                  <li key={i} className="flex items-center gap-2.5 text-sm">
-                    <span className="w-5 shrink-0 text-right text-xs font-semibold text-slate-400">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-slate-700" title={t.r.keyword ?? ""}>
-                        {t.r.keyword ?? t.r.ad_group ?? t.r.campaign ?? "-"}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Bar
-                          pct={(t.v / topMax) * 100}
-                          color={CATEGORY_COLORS[t.r.category] ?? "#94a3b8"}
-                        />
-                        <span className="w-24 shrink-0 text-right tabular-nums font-semibold text-slate-800">
-                          {primary.fmt(t.v)}
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-700">
+                {primary.label} 상위 상품{" "}
+                <span className="font-normal text-slate-400">
+                  · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDetailOpen((open) => !open)}
+                className="rounded-md bg-[#EEF2F6] px-2.5 py-1 text-xs font-medium text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] transition hover:bg-[#E4EAF1]"
+              >
+                {detailOpen ? "접기" : "전체"}
+              </button>
+            </div>
+            <MetricRankList
+              items={topRows.map((t, i) => ({
+                key: `${t.r.keyword ?? t.r.ad_group ?? t.r.campaign ?? "row"}-${i}`,
+                label: t.r.keyword ?? t.r.ad_group ?? t.r.campaign ?? "-",
+                value: t.v,
+                color: CATEGORY_COLORS[t.r.category] ?? "#94a3b8",
+              }))}
+              maxValue={topMax}
+              valueFormatter={primary.fmt}
+            />
           </div>
         </div>
 
-        <DetailTable stage={stage} cat={cat} topRows={topRows} />
+        {detailOpen && (
+          <DetailTable stage={stage} cat={cat} topRows={rankedRows} />
+        )}
       </section>
 
       {/* 주요 변화 이슈 (전날 대비) */}
@@ -1165,6 +1156,70 @@ function DetailTable({
         </table>
       </div>
     </div>
+  );
+}
+
+function MetricRankList({
+  items,
+  maxValue,
+  valueFormatter,
+}: {
+  items: {
+    key: string;
+    label: string;
+    value: number;
+    color: string;
+    active?: boolean;
+    onClick?: () => void;
+  }[];
+  maxValue: number;
+  valueFormatter: (value: number) => string;
+}) {
+  if (items.length === 0) {
+    return (
+      <div className="py-10 text-center text-sm text-slate-400">
+        데이터가 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <ol className="space-y-2.5">
+      {items.map((item, index) => {
+        const labelClass = item.active
+          ? "font-bold text-slate-900"
+          : "text-slate-700 hover:text-slate-900";
+        return (
+          <li key={item.key} className="flex items-center gap-2.5 text-sm">
+            <span className="w-5 shrink-0 text-right text-xs font-semibold text-slate-400">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              {item.onClick ? (
+                <button
+                  type="button"
+                  onClick={item.onClick}
+                  className={`block w-full truncate text-left ${labelClass}`}
+                  title={item.label}
+                >
+                  {item.label}
+                </button>
+              ) : (
+                <div className="truncate text-slate-700" title={item.label}>
+                  {item.label}
+                </div>
+              )}
+              <div className="mt-1 flex items-center gap-2">
+                <Bar pct={(item.value / maxValue) * 100} color={item.color} />
+                <span className="w-24 shrink-0 text-right tabular-nums font-semibold text-slate-800">
+                  {valueFormatter(item.value)}
+                </span>
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
