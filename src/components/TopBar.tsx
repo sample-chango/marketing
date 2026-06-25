@@ -8,15 +8,17 @@ export function TopBar({
   title,
   children,
   maxWidth = "max-w-6xl",
+  contentClassName = "px-4 md:px-8",
 }: {
   title: string;
   children?: React.ReactNode;
   maxWidth?: string;
+  contentClassName?: string;
 }) {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-[#D8DEE8] bg-[#F8FAFC]/95 shadow-[0_1px_0_rgba(66,80,102,0.04)] backdrop-blur">
       <div
-        className={`mx-auto flex ${maxWidth} flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-8`}
+        className={`mx-auto flex ${maxWidth} flex-wrap items-center justify-between gap-3 py-3 ${contentClassName}`}
       >
         <h1 className="text-xl font-bold text-[#2C3440]">{title}</h1>
         {children && (

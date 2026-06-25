@@ -45,7 +45,7 @@ const BRAND = {
 };
 
 const CARD_CLASS =
-  "rounded-[15px] border border-[#D8DEE8] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
+  "rounded-[15px] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const ACTIVE_CHIP_CLASS =
   "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
 const IDLE_CHIP_CLASS =
@@ -485,7 +485,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   return (
     <>
       {/* 상단 바: 제목 + 기간 선택(우측). 변화분석/네비/로그아웃은 사이드바 */}
-      <TopBar title="Analytics Dashboard">
+      <TopBar title="Analytics Dashboard" contentClassName="px-4 md:px-8">
         {/* 기간 범위 선택 (달력 하나) */}
         <RangeCalendar
           start={rs}
