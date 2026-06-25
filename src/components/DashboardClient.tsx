@@ -1198,20 +1198,23 @@ function MetricRankList({
               </span>
             )}
             <div className="min-w-0 flex-1">
-              {item.onClick ? (
-                <button
-                  type="button"
-                  onClick={item.onClick}
-                  className={`block w-full truncate text-left ${labelClass}`}
-                  title={item.label}
-                >
-                  {item.label}
-                </button>
-              ) : (
-                <div className="truncate text-slate-700" title={item.label}>
-                  {item.label}
-                </div>
-              )}
+              <div className="grid grid-cols-[minmax(0,1fr)_10rem] items-start gap-2">
+                {item.onClick ? (
+                  <button
+                    type="button"
+                    onClick={item.onClick}
+                    className={`block min-w-0 truncate text-left ${labelClass}`}
+                    title={item.label}
+                  >
+                    {item.label}
+                  </button>
+                ) : (
+                  <div className="min-w-0 truncate text-slate-700" title={item.label}>
+                    {item.label}
+                  </div>
+                )}
+                <span aria-hidden />
+              </div>
               <div className="mt-1 grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-2">
                 <Bar pct={(item.value / maxValue) * 100} color={item.color} />
                 <span className="block w-full pr-10 text-right tabular-nums font-semibold text-slate-800">
