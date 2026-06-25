@@ -1185,7 +1185,7 @@ function MetricRankList({
   }
 
   return (
-    <ol className="space-y-2.5">
+    <ol className="m-0 list-none space-y-2.5 p-0">
       {items.map((item, index) => {
         const labelClass = item.active
           ? "font-bold text-slate-900"
@@ -1193,7 +1193,7 @@ function MetricRankList({
         return (
           <li key={item.key} className="flex items-start gap-2.5 text-sm">
             {showIndex && (
-              <span className="w-5 shrink-0 pt-0.5 text-right text-xs font-semibold text-slate-400">
+              <span className="w-5 shrink-0 pt-0.5 text-left text-xs font-semibold text-slate-400">
                 {index + 1}
               </span>
             )}
