@@ -665,23 +665,23 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg bg-[#E3E9F0] p-0.5 shadow-inner">
+              <div className="inline-flex rounded-full border-2 border-[#8B5CF6] bg-white p-1">
                 <button
                   onClick={() => setTrendByCat(false)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
                     !trendByCat
-                      ? ACTIVE_CHIP_CLASS
-                      : IDLE_CHIP_CLASS
+                      ? "bg-[#8B5CF6] text-white"
+                      : "bg-white text-[#4F5B6A] hover:bg-[#F8F6FF]"
                   }`}
                 >
                   합산
                 </button>
                 <button
                   onClick={() => setTrendByCat(true)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
                     trendByCat
-                      ? ACTIVE_CHIP_CLASS
-                      : IDLE_CHIP_CLASS
+                      ? "bg-[#8B5CF6] text-white"
+                      : "bg-white text-[#4F5B6A] hover:bg-[#F8F6FF]"
                   }`}
                 >
                   {cat === "all" ? "카테고리별" : "제품별"}
@@ -738,9 +738,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <Fragment key={s.key}>
                 <button
                   onClick={() => setStageKey(s.key)}
-                  className={`min-w-[120px] flex-1 overflow-hidden rounded-xl text-left transition ${
+                  className={`flex min-w-[120px] flex-1 flex-col overflow-hidden rounded-xl text-left transition ${
                     selected
-                      ? "shadow-[0_10px_22px_rgba(3,199,90,0.16)]"
+                      ? "outline outline-2 outline-[#03C75A]"
                       : "bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
@@ -754,7 +754,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     {s.label}
                   </div>
                   <div
-                    className={`space-y-2 px-4 py-4 ${
+                    className={`flex-1 space-y-2 px-4 py-4 ${
                       selected ? "bg-[#F4FFF8]" : "bg-[#F6F8FB]"
                     }`}
                   >
