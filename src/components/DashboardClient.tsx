@@ -986,7 +986,7 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F8FAFC]"
+        className="flex items-center gap-2 rounded-lg bg-[#F7F8FA] px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#EEF2F6]"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
