@@ -789,22 +789,24 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
               카테고리별 {primary.label}
             </h3>
-            <MetricRankList
-              items={catBars.map((b) => ({
-                key: b.slug,
-                label: b.label,
-                value: b.value,
-                color: b.color,
-                active: cat === b.slug,
-                onClick: () => setCat(b.slug),
-              }))}
-              maxValue={catMax}
-              valueFormatter={primary.fmt}
-              showIndex={false}
-            />
+            <div className="md:pr-7">
+              <MetricRankList
+                items={catBars.map((b) => ({
+                  key: b.slug,
+                  label: b.label,
+                  value: b.value,
+                  color: b.color,
+                  active: cat === b.slug,
+                  onClick: () => setCat(b.slug),
+                }))}
+                maxValue={catMax}
+                valueFormatter={primary.fmt}
+                showIndex={false}
+              />
+            </div>
           </div>
 
-          <div className="md:col-span-3 md:col-start-5">
+          <div className="md:col-span-3 md:col-start-5 md:pl-7 md:pr-[17px]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-slate-700">
                 {primary.label} 상위 상품
