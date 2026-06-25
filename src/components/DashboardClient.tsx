@@ -47,9 +47,9 @@ const BRAND = {
 const CARD_CLASS =
   "rounded-[15px] border border-[#D8DEE8] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const ACTIVE_CHIP_CLASS =
-  "rounded-[15px] bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
+  "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
 const IDLE_CHIP_CLASS =
-  "rounded-[15px] bg-[#EEF2F6] text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]";
+  "bg-[#EEF2F6] text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]";
 
 const PRIMARY: Record<
   FunnelStage["key"],
@@ -665,10 +665,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-[17px] bg-[#E3E9F0] p-0.5 shadow-inner">
+              <div className="inline-flex rounded-lg bg-[#E3E9F0] p-0.5 shadow-inner">
                 <button
                   onClick={() => setTrendByCat(false)}
-                  className={`px-2.5 py-1 text-xs font-medium ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                     !trendByCat
                       ? ACTIVE_CHIP_CLASS
                       : IDLE_CHIP_CLASS
@@ -678,7 +678,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 </button>
                 <button
                   onClick={() => setTrendByCat(true)}
-                  className={`px-2.5 py-1 text-xs font-medium ${
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                     trendByCat
                       ? ACTIVE_CHIP_CLASS
                       : IDLE_CHIP_CLASS
@@ -692,7 +692,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <button
                     key={t.key}
                     onClick={() => setTrendKey(t.key)}
-                    className={`px-2.5 py-1 text-xs font-medium ${
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
                       trendKey === t.key
                         ? ACTIVE_CHIP_CLASS
                         : IDLE_CHIP_CLASS
@@ -738,9 +738,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <Fragment key={s.key}>
                 <button
                   onClick={() => setStageKey(s.key)}
-                  className={`min-w-[120px] flex-1 overflow-hidden rounded-[15px] text-left transition ${
+                  className={`min-w-[120px] flex-1 overflow-hidden rounded-xl text-left transition ${
                     selected
-                      ? "border-transparent shadow-[0_10px_22px_rgba(3,199,90,0.16)] ring-2 ring-[#03C75A]/25"
+                      ? "shadow-[0_10px_22px_rgba(3,199,90,0.16)]"
                       : "bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
@@ -759,9 +759,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     }`}
                   >
                     {s.metrics.map((m) => (
-                      <div key={m.label} className="text-center">
+                      <div
+                        key={m.label}
+                        className="flex items-center justify-between gap-3 text-left"
+                      >
                         <div className="text-xs text-slate-500">{m.label}</div>
-                        <div className="font-bold text-slate-800">
+                        <div className="shrink-0 text-right font-bold text-slate-800">
                           {m.value(current)}
                         </div>
                       </div>
@@ -1002,14 +1005,14 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-[15px] bg-[#EEF2F6] px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]"
+        className="flex items-center gap-2 rounded-lg bg-[#EEF2F6] px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-[15px] border border-[#D8DEE8] bg-white p-3 shadow-[0_10px_22px_rgba(66,80,102,0.08)]">
+        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[#D8DEE8] bg-white p-3 shadow-[0_10px_22px_rgba(66,80,102,0.08)]">
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
@@ -1223,7 +1226,7 @@ function Tab({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium transition ${
+      className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
         active
           ? ACTIVE_CHIP_CLASS
           : IDLE_CHIP_CLASS
