@@ -777,8 +777,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           })}
         </div>
 
-        <div className="mt-6 grid gap-6 pl-4 lg:grid-cols-2">
-          <div>
+        <div className="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-2">
+          <div className="md:col-span-3">
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
               카테고리별 {primary.label}
             </h3>
@@ -797,7 +797,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             />
           </div>
 
-          <div>
+          <div className="md:col-span-3 md:col-start-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-slate-700">
                 {primary.label} 상위 상품
