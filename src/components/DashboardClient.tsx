@@ -321,6 +321,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const { showChange, toggle: toggleChange } = useChangeAnalysis();
   const [costDetailOpen, setCostDetailOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [breakdownShowPercent, setBreakdownShowPercent] = useState(false);
 
   // 유효 범위 (데이터 범위로 보정)
   let rs = rangeStart && allDates.includes(rangeStart) ? rangeStart : earliest;
@@ -584,18 +585,24 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
           valueFormatter={(value) => `${fmtInt(value)}개`}
+          showPercent={breakdownShowPercent}
+          onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
           slices={slicesOf((m) => m.conversions)}
         />
         <BreakdownCard
           title="총 매출액"
           value={fmtWon(o.conversionValue)}
           valueFormatter={fmtWon}
+          showPercent={breakdownShowPercent}
+          onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
           slices={slicesOf((m) => m.conversionValue)}
         />
         <BreakdownCard
           title="총 광고비"
           value={fmtWon(o.cost)}
           valueFormatter={fmtWon}
+          showPercent={breakdownShowPercent}
+          onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
           action={
             <button
               type="button"
@@ -1236,6 +1243,8 @@ function BreakdownCard({
   action,
   slices,
   valueFormatter,
+  showPercent,
+  onToggleDisplay,
   children,
 }: {
   title: string;
@@ -1244,6 +1253,8 @@ function BreakdownCard({
   action?: React.ReactNode;
   slices: { label: string; value: number; color: string }[];
   valueFormatter?: (value: number) => string;
+  showPercent?: boolean;
+  onToggleDisplay?: () => void;
   children?: React.ReactNode;
 }) {
   return (
@@ -1261,7 +1272,12 @@ function BreakdownCard({
         )}
       </div>
       <div className="mt-3">
-        <CategoryBars slices={slices} valueFormatter={valueFormatter} />
+        <CategoryBars
+          slices={slices}
+          valueFormatter={valueFormatter}
+          showPercent={showPercent}
+          onToggleDisplay={onToggleDisplay}
+        />
       </div>
       {children && <div className="mt-4 border-t border-slate-100 pt-4">{children}</div>}
     </div>

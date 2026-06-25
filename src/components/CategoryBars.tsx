@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 export interface CategorySlice {
   label: string;
   value: number;
@@ -12,14 +10,17 @@ export interface CategorySlice {
 export function CategoryBars({
   slices,
   valueFormatter,
+  showPercent = false,
+  onToggleDisplay,
 }: {
   slices: CategorySlice[];
   valueFormatter?: (value: number) => string;
+  showPercent?: boolean;
+  onToggleDisplay?: () => void;
 }) {
-  const [showPercent, setShowPercent] = useState(false);
   const total = slices.reduce((s, d) => s + d.value, 0);
   const data = [...slices].sort((a, b) => b.value - a.value);
-  const canToggleValue = Boolean(valueFormatter);
+  const canToggleValue = Boolean(valueFormatter && onToggleDisplay);
 
   if (data.length === 0) {
     return (
@@ -54,8 +55,9 @@ export function CategoryBars({
               {canToggleValue ? (
                 <button
                   type="button"
-                  onClick={() => setShowPercent((value) => !value)}
+                  onClick={onToggleDisplay}
                   aria-label={`${d.label} 표시 전환`}
+                  aria-pressed={showPercent}
                   className={`shrink-0 rounded-md px-1.5 py-0.5 text-right tabular-nums transition hover:bg-[#EEF2F6] ${
                     isPrimary
                       ? "font-bold text-slate-900"
