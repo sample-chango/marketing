@@ -45,11 +45,11 @@ const BRAND = {
 };
 
 const CARD_CLASS =
-  "rounded-lg border border-[#D8DEE8] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
+  "rounded-[15px] border border-[#D8DEE8] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const ACTIVE_CHIP_CLASS =
-  "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
+  "rounded-[15px] bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
 const IDLE_CHIP_CLASS =
-  "border border-[#DDE3EB] bg-white text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F3F6FA]";
+  "rounded-[15px] bg-[#EEF2F6] text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]";
 
 const PRIMARY: Record<
   FunnelStage["key"],
@@ -665,23 +665,23 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </span>
             </h3>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg border border-[#DDE3EB] bg-[#F3F6FA] p-0.5 shadow-inner">
+              <div className="inline-flex rounded-[17px] bg-[#E3E9F0] p-0.5 shadow-inner">
                 <button
                   onClick={() => setTrendByCat(false)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                  className={`px-2.5 py-1 text-xs font-medium ${
                     !trendByCat
                       ? ACTIVE_CHIP_CLASS
-                      : "text-[#4F5B6A]"
+                      : IDLE_CHIP_CLASS
                   }`}
                 >
                   합산
                 </button>
                 <button
                   onClick={() => setTrendByCat(true)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                  className={`px-2.5 py-1 text-xs font-medium ${
                     trendByCat
                       ? ACTIVE_CHIP_CLASS
-                      : "text-[#4F5B6A]"
+                      : IDLE_CHIP_CLASS
                   }`}
                 >
                   {cat === "all" ? "카테고리별" : "제품별"}
@@ -692,7 +692,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   <button
                     key={t.key}
                     onClick={() => setTrendKey(t.key)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    className={`px-2.5 py-1 text-xs font-medium ${
                       trendKey === t.key
                         ? ACTIVE_CHIP_CLASS
                         : IDLE_CHIP_CLASS
@@ -738,17 +738,17 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <Fragment key={s.key}>
                 <button
                   onClick={() => setStageKey(s.key)}
-                  className={`min-w-[120px] flex-1 overflow-hidden rounded-xl border text-left transition ${
+                  className={`min-w-[120px] flex-1 overflow-hidden rounded-[15px] text-left transition ${
                     selected
                       ? "border-transparent shadow-[0_10px_22px_rgba(3,199,90,0.16)] ring-2 ring-[#03C75A]/25"
-                      : "border-[#D8DEE8] hover:border-[#AEB8C7] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
+                      : "bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
                   }`}
                 >
                   <div
-                    className={`px-4 py-2 text-center text-sm font-semibold text-white ${
+                    className={`px-4 py-2 text-center text-sm font-semibold ${
                       selected
-                        ? "bg-[#03C75A]"
-                        : "bg-[#465466]"
+                        ? "bg-[#03C75A] text-white"
+                        : "bg-[#E4EAF1] text-[#4F5B6A]"
                     }`}
                   >
                     {s.label}
@@ -1002,14 +1002,14 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-lg border border-[#D8DEE8] bg-white px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#F3F6FA]"
+        className="flex items-center gap-2 rounded-[15px] bg-[#EEF2F6] px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[#D8DEE8] bg-white p-3 shadow-[0_10px_22px_rgba(66,80,102,0.08)]">
+        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-[15px] border border-[#D8DEE8] bg-white p-3 shadow-[0_10px_22px_rgba(66,80,102,0.08)]">
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
@@ -1223,7 +1223,7 @@ function Tab({
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+      className={`px-4 py-2 text-sm font-medium transition ${
         active
           ? ACTIVE_CHIP_CLASS
           : IDLE_CHIP_CLASS
