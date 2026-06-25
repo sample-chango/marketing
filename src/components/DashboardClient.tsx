@@ -799,7 +799,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-slate-700">
+              <h3 className="pl-[30px] text-sm font-semibold text-slate-700">
                 {primary.label} 상위 상품
               </h3>
               <button
@@ -1191,9 +1191,9 @@ function MetricRankList({
           ? "font-bold text-slate-900"
           : "text-slate-700 hover:text-slate-900";
         return (
-          <li key={item.key} className="flex items-center gap-2.5 text-sm">
+          <li key={item.key} className="flex items-start gap-2.5 text-sm">
             {showIndex && (
-              <span className="w-5 shrink-0 text-right text-xs font-semibold text-slate-400">
+              <span className="w-5 shrink-0 pt-0.5 text-right text-xs font-semibold text-slate-400">
                 {index + 1}
               </span>
             )}
