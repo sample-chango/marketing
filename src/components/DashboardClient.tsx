@@ -238,9 +238,9 @@ function buildIssues(cur: MetricRow[], base: MetricRow[]): Issue[] {
 
 function Bar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div className="h-2 flex-1 rounded-full bg-[#EEF5FF]">
+    <div className="h-2.5 flex-1 rounded-full bg-[#EEF5FF]">
       <div
-        className="h-2 rounded-full"
+        className="h-2.5 rounded-full"
         style={{ width: `${Math.max(2, Math.min(100, pct))}%`, background: color }}
       />
     </div>
@@ -1217,7 +1217,7 @@ function MetricRankList({
               </div>
               <div className="mt-1 grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-2">
                 <Bar pct={(item.value / maxValue) * 100} color={item.color} />
-                <span className="block w-full pr-10 text-right tabular-nums font-semibold text-slate-800">
+                <span className="block w-full text-right tabular-nums font-semibold text-slate-800">
                   {valueFormatter(item.value)}
                 </span>
               </div>
