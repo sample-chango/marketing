@@ -84,17 +84,6 @@ export function CategoryBars({
           </div>
         );
       })}
-      <ul className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[11px] text-slate-400">
-        {slices.map((d) => (
-          <li key={d.label} className="flex items-center gap-1">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: d.color }}
-            />
-            {d.label}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
