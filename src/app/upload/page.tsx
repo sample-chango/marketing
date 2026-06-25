@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { DataManagePanel } from "@/components/DataManagePanel";
 import { TopBar } from "@/components/TopBar";
 import { categoryLabel } from "@/lib/categories";
 
@@ -36,6 +37,7 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const weekEnd = weekStart ? addDays(weekStart, 6) : "";
 
@@ -74,15 +76,15 @@ export default function UploadPage() {
 
   return (
     <>
-      <TopBar title="데이터 업로드" maxWidth="max-w-2xl" />
-      <div className="mx-auto max-w-2xl p-4 md:p-8">
-        <p className="mb-6 text-sm text-slate-500">
+      <TopBar title="데이터 업로드" maxWidth="max-w-5xl" />
+      <div className="mx-auto max-w-5xl p-4 md:p-8">
+        <p className="mb-6 max-w-2xl text-sm text-slate-500">
           네이버 소재 목록 보고서를 올리면 카테고리가 자동 분류됩니다.
         </p>
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        className="max-w-2xl space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -233,7 +235,7 @@ export default function UploadPage() {
 
       {result && (
         <div
-          className={`mt-5 rounded-2xl border p-5 text-sm ${
+          className={`mt-5 max-w-2xl rounded-2xl border p-5 text-sm ${
             result.ok
               ? "border-emerald-200 bg-emerald-50 text-emerald-900"
               : "border-red-200 bg-red-50 text-red-800"
@@ -319,6 +321,29 @@ export default function UploadPage() {
           )}
         </div>
       )}
+
+      <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setManageOpen((value) => !value)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">데이터 관리</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              업로드한 데이터를 기간별로 수정하거나 삭제합니다.
+            </p>
+          </div>
+          <span className="text-[11px] font-medium text-emerald-600">
+            {manageOpen ? "닫기 ▲" : "열기 ▼"}
+          </span>
+        </button>
+        {manageOpen && (
+          <div className="mt-5">
+            <DataManagePanel />
+          </div>
+        )}
+      </section>
       </div>
     </>
   );

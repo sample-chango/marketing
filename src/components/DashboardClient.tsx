@@ -34,7 +34,6 @@ type MetricKey =
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
 const mmdd = (iso: string) => iso.slice(5).replace("-", ".");
 const rowDate = (r: MetricRow) => r.period_end;
-
 const BRAND = {
   green: "#03C75A",
   mint: "#12C8A8",
@@ -75,6 +74,8 @@ const TREND_METRICS: {
   { key: "conversionValue", label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, color: BRAND.mint },
   { key: "roas", label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, color: BRAND.cyan },
 ];
+
+const CHANGE_ANALYSIS_STORAGE_KEY = "marketing-change-analysis-ranges";
 
 const PRODUCT_PALETTE = [
   BRAND.green,
@@ -233,7 +234,7 @@ function buildIssues(cur: MetricRow[], base: MetricRow[]): Issue[] {
     }
   }
 
-  return issues.sort((a, b) => b.score - a.score).slice(0, 12);
+  return issues.sort((a, b) => b.score - a.score).slice(0, 5);
 }
 
 function Bar({ pct, color }: { pct: number; color: string }) {
@@ -268,48 +269,12 @@ function Delta({
   );
 }
 
-function WoW({
-  curr,
-  prev,
-  fmt,
-  goodWhenUp = true,
-  showDetail = false,
-  onClick,
-}: {
-  curr: number;
-  prev: number | null;
-  fmt: (n: number) => string;
-  goodWhenUp?: boolean;
-  showDetail?: boolean;
-  onClick?: () => void;
-}) {
-  const has = prev != null && prev > 0;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-right text-[11px] font-normal text-slate-400 hover:text-slate-600"
-      title="클릭하면 변화값 표시"
-    >
-      {showDetail && has && (
-        <span className="block text-slate-500">
-          {fmt(prev!)} → {fmt(curr)}
-        </span>
-      )}
-      전날대비{" "}
-      {has ? (
-        <Delta curr={curr} prev={prev} goodWhenUp={goodWhenUp} />
-      ) : (
-        <span className="text-slate-300">—</span>
-      )}
-    </button>
-  );
-}
-
 export function DashboardClient({ data }: { data: DashboardData }) {
   const allDates = [...new Set(data.rows.map(rowDate))].sort();
+  const allDatesKey = allDates.join("|");
   const earliest = allDates[0] ?? "";
   const latest = allDates[allDates.length - 1] ?? "";
+  const previous = allDates[allDates.length - 2] ?? latest;
 
   // 기본값: 가장 최근 1일 (전날 대비 = 최근일 vs 바로 전날). 기간은 달력으로 넓힐 수 있음
   const [rangeStart, setRangeStart] = useState(latest);
@@ -318,19 +283,60 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
   const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
   const [trendByCat, setTrendByCat] = useState(true);
-  const { showChange, toggle: toggleChange } = useChangeAnalysis();
+  const { showChange } = useChangeAnalysis();
   const [costDetailOpen, setCostDetailOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [breakdownShowPercent, setBreakdownShowPercent] = useState(false);
+  const [analysisAStart, setAnalysisAStart] = useState(previous);
+  const [analysisAEnd, setAnalysisAEnd] = useState(previous);
+  const [analysisBStart, setAnalysisBStart] = useState(latest);
+  const [analysisBEnd, setAnalysisBEnd] = useState(latest);
+  const [analysisStorageLoaded, setAnalysisStorageLoaded] = useState(false);
 
+  useEffect(() => {
+    if (analysisStorageLoaded || typeof window === "undefined") return;
+
+    const isValidDate = (value: unknown): value is string =>
+      typeof value === "string" && allDates.includes(value);
+
+    try {
+      const raw = window.localStorage.getItem(CHANGE_ANALYSIS_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Record<string, unknown>;
+        setAnalysisAStart(isValidDate(saved.aStart) ? saved.aStart : previous);
+        setAnalysisAEnd(isValidDate(saved.aEnd) ? saved.aEnd : previous);
+        setAnalysisBStart(isValidDate(saved.bStart) ? saved.bStart : latest);
+        setAnalysisBEnd(isValidDate(saved.bEnd) ? saved.bEnd : latest);
+      }
+    } catch {
+      // Ignore broken local preview settings.
+    } finally {
+      setAnalysisStorageLoaded(true);
+    }
+  }, [allDates, allDatesKey, analysisStorageLoaded, latest, previous]);
+
+  useEffect(() => {
+    if (!analysisStorageLoaded || typeof window === "undefined") return;
+
+    window.localStorage.setItem(
+      CHANGE_ANALYSIS_STORAGE_KEY,
+      JSON.stringify({
+        aStart: analysisAStart,
+        aEnd: analysisAEnd,
+        bStart: analysisBStart,
+        bEnd: analysisBEnd,
+      }),
+    );
+  }, [
+    analysisAEnd,
+    analysisAStart,
+    analysisBEnd,
+    analysisBStart,
+    analysisStorageLoaded,
+  ]);
   // 유효 범위 (데이터 범위로 보정)
   let rs = rangeStart && allDates.includes(rangeStart) ? rangeStart : earliest;
   let re = rangeEnd && allDates.includes(rangeEnd) ? rangeEnd : latest;
   if (rs && re && rs > re) [rs, re] = [re, rs];
-
-  useEffect(() => {
-    setDetailOpen(false);
-  }, [stageKey, cat, rs, re]);
 
   const inRange = (r: MetricRow) => {
     const d = rowDate(r);
@@ -360,7 +366,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const base = baseRows.length ? agg(baseRows) : null;
   const byCategory = byCatOf(currentRows);
   const byCategoryBase = baseRows.length ? byCatOf(baseRows) : null;
-  const issues = buildIssues(currentRows, baseRows);
 
   const current: DerivedMetrics =
     cat === "all" ? o : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
@@ -381,13 +386,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const catMax = Math.max(1, ...catBars.map((b) => b.value));
 
   // 제품명 기준으로 묶어 기간 내 일자별 행을 합산 (동일 상품이 날짜마다 중복되지 않도록)
-  const rankedRows = [...groupByName(rows).values()]
+  const topRows = [...groupByName(rows).values()]
     .map((rs) => {
       const dm = agg(rs);
       return { r: rs[0], dm, v: primary.pick(dm) };
     })
-    .sort((a, b) => b.v - a.v);
-  const topRows = rankedRows.slice(0, 6);
+    .sort((a, b) => b.v - a.v)
+    .slice(0, 10);
   const topMax = Math.max(1, ...topRows.map((t) => t.v));
 
   const slicesOf = (pick: (m: DerivedMetrics) => number) =>
@@ -475,7 +480,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const days = rs && re ? daysInclusive(rs, re) : 0;
   const effBudget = data.dailyBudget * days;
   const execRate = effBudget > 0 ? o.cost / effBudget : null;
-
   const periodText = rs
     ? rs === re
       ? fmtDate(rs)
@@ -487,6 +491,219 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     const m = byCategoryBase.find((c) => c.slug === slug)?.metrics;
     return m ? pick(m) : null;
   };
+
+  const conversionBreakdown = byCategory
+    .map((c) => ({
+      slug: c.slug,
+      label: c.label,
+      value: c.metrics.conversions,
+      prev: baseMetric(c.slug, (m) => m.conversions),
+      color: CATEGORY_COLORS[c.slug],
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const revenueBreakdown = byCategory
+    .map((c) => ({
+      slug: c.slug,
+      label: c.label,
+      value: c.metrics.conversionValue,
+      prev: baseMetric(c.slug, (m) => m.conversionValue),
+      color: CATEGORY_COLORS[c.slug],
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const roasBreakdown = byCategory
+    .map((c) => ({
+      slug: c.slug,
+      label: c.label,
+      value: c.metrics.roas,
+      prev: baseMetric(c.slug, (m) => m.roas),
+      color: CATEGORY_COLORS[c.slug],
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const normalizeAnalysisRange = (start: string, end: string, fallback: string) => {
+    let s = start && allDates.includes(start) ? start : fallback;
+    let e = end && allDates.includes(end) ? end : fallback;
+    if (s && e && s > e) [s, e] = [e, s];
+    return { start: s, end: e };
+  };
+  const rangeText = (start: string, end: string) =>
+    start
+      ? start === end
+        ? fmtDate(start)
+        : `${fmtDate(start)} - ${fmtDate(end)}`
+      : "기간 없음";
+  const rowsBetween = (start: string, end: string) =>
+    data.rows.filter((r) => {
+      const d = rowDate(r);
+      return d >= start && d <= end;
+    });
+
+  const analysisA = normalizeAnalysisRange(analysisAStart, analysisAEnd, previous);
+  const analysisB = normalizeAnalysisRange(analysisBStart, analysisBEnd, latest);
+  const analysisARows = rowsBetween(analysisA.start, analysisA.end);
+  const analysisBRows = rowsBetween(analysisB.start, analysisB.end);
+  const analysisAMetrics = agg(analysisARows);
+  const analysisBMetrics = agg(analysisBRows);
+  const analysisByCategoryA = byCatOf(analysisARows);
+  const analysisByCategoryB = byCatOf(analysisBRows);
+  const analysisIssues = buildIssues(analysisBRows, analysisARows);
+  const analysisBaseMetric = (
+    slug: string,
+    pick: (m: DerivedMetrics) => number,
+  ) => {
+    const m = analysisByCategoryA.find((c) => c.slug === slug)?.metrics;
+    return m ? pick(m) : null;
+  };
+  const analysisHasRows = analysisARows.length > 0 || analysisBRows.length > 0;
+
+  if (showChange) {
+    return (
+      <>
+        <TopBar title="Change Analysis" />
+        <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
+          {!data.configured && (
+            <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
+          )}
+          {data.configured && !data.hasData && (
+            <Banner tone="blue">
+              데이터가 없습니다. 우측 상단 <b>데이터 업로드</b>에서 네이버 보고서를
+              올리세요.
+            </Banner>
+          )}
+
+          <section className={CARD_CLASS}>
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-slate-800">변화 분석</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                원하는 두 기간을 선택해 카테고리별 변화를 비교합니다.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-600">기간 A</div>
+                <RangeCalendar
+                  start={analysisA.start}
+                  end={analysisA.end}
+                  min={earliest}
+                  max={latest}
+                  onChange={(s, e) => {
+                    setAnalysisAStart(s);
+                    setAnalysisAEnd(e);
+                  }}
+                />
+                <div className="text-xs text-slate-400">
+                  {rangeText(analysisA.start, analysisA.end)}
+                </div>
+              </div>
+              <div className="pb-8 text-center text-xs font-semibold text-slate-400">VS</div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-600">기간 B</div>
+                <RangeCalendar
+                  start={analysisB.start}
+                  end={analysisB.end}
+                  min={earliest}
+                  max={latest}
+                  onChange={(s, e) => {
+                    setAnalysisBStart(s);
+                    setAnalysisBEnd(e);
+                  }}
+                />
+                <div className="text-xs text-slate-400">
+                  {rangeText(analysisB.start, analysisB.end)}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className={CARD_CLASS}>
+            <h3 className="mb-3 font-semibold text-slate-800">
+              비교 결과{" "}
+              <span className="text-sm font-normal text-slate-400">
+                기간 B vs 기간 A
+              </span>
+            </h3>
+            {!analysisHasRows ? (
+              <p className="py-6 text-center text-sm text-slate-400">
+                선택한 기간에 비교할 데이터가 없습니다.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-slate-500">
+                    <tr className="border-b border-slate-200">
+                      <th className="px-2 py-2 text-left font-medium">카테고리</th>
+                      {CHANGE_COLS.map((c) => (
+                        <th key={c.label} className="px-2 py-2 text-right font-medium">
+                          {c.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <ChangeRow
+                      label="전체"
+                      bold
+                      metrics={analysisBMetrics}
+                      baseMetrics={analysisAMetrics}
+                    />
+                    {analysisByCategoryB.map((c) => (
+                      <ChangeRow
+                        key={c.slug}
+                        label={c.label}
+                        metrics={c.metrics}
+                        basePick={(pick) => analysisBaseMetric(c.slug, pick)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className={CARD_CLASS}>
+            <h3 className="text-lg font-semibold text-slate-800">주요 변화 이슈 TOP5</h3>
+            <p className="mb-4 text-sm text-slate-400">
+              {rangeText(analysisB.start, analysisB.end)} vs {rangeText(analysisA.start, analysisA.end)} · 변화가 큰 순
+            </p>
+            {analysisARows.length === 0 || analysisBRows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                두 기간 모두에 데이터가 있어야 주요 변화 이슈를 계산할 수 있습니다.
+              </p>
+            ) : analysisIssues.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                선택한 기간 사이에 큰 변화가 없습니다.
+              </p>
+            ) : (
+              <ul className="grid gap-2 md:grid-cols-2">
+                {analysisIssues.map((issue, i) => (
+                  <li
+                    key={i}
+                    className={`flex items-start gap-3 rounded-xl border p-3 ${
+                      issue.tone === "up"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : issue.tone === "warn"
+                          ? "border-amber-200 bg-amber-50"
+                          : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{issue.emoji}</span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-slate-800">
+                        {issue.title}
+                      </div>
+                      <div className="text-xs text-slate-500">{issue.detail}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -508,7 +725,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       {/* 본문 */}
       <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
       {!data.configured && (
-        <Banner tone="purple">Supabase 환경변수가 설정되지 않았습니다.</Banner>
+        <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
       )}
       {data.configured && !data.hasData && (
         <Banner tone="blue">
@@ -517,61 +734,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </Banner>
       )}
 
-      {/* 변화 분석 표 */}
-      {showChange && (
-        <div className={CARD_CLASS}>
-          <h3 className="mb-3 font-semibold text-slate-800">
-            변화 분석{" "}
-            <span className="text-sm font-normal text-slate-400">
-              {periodText} vs 전날 ({basePeriodText})
-            </span>
-          </h3>
-          {!base ? (
-            <p className="py-6 text-center text-sm text-slate-400">
-              비교할 전날 데이터가 없습니다.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-slate-500">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-2 py-2 text-left font-medium">카테고리</th>
-                    {CHANGE_COLS.map((c) => (
-                      <th key={c.label} className="px-2 py-2 text-right font-medium">
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  <ChangeRow label="전체" bold metrics={o} baseMetrics={base} />
-                  {byCategory.map((c) => (
-                    <ChangeRow
-                      key={c.slug}
-                      label={c.label}
-                      metrics={c.metrics}
-                      basePick={(pick) => baseMetric(c.slug, pick)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* 상단 카드: ROAS */}
       <div className="grid gap-5">
         <div className={CARD_CLASS}>
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-slate-500">ROAS</span>
-            <WoW
-              curr={o.roas}
-              prev={base?.roas ?? null}
-              fmt={fmtRoas}
-              showDetail={showChange}
-              onClick={toggleChange}
-            />
           </div>
           <div className="mt-2 text-5xl font-bold text-slate-900">
             {fmtRoas(o.roas)}
@@ -606,7 +774,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           action={
             <button
               type="button"
-              onClick={() => setCostDetailOpen((v) => !v)}
+              onClick={() => setCostDetailOpen((value) => !value)}
               className="text-[11px] font-medium text-[#03A84E] hover:text-[#027A38]"
             >
               {costDetailOpen ? "집행내역 접기 ▲" : "집행내역 보기 ▼"}
@@ -671,20 +839,16 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               <div className="inline-flex rounded-md bg-[#EEF2F6] shadow-[0_1px_4px_rgba(66,80,102,0.03)]">
                 <button
                   onClick={() => setTrendByCat(false)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    !trendByCat
-                      ? "bg-[#465466] text-white"
-                      : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    !trendByCat ? "bg-[#465466] text-white" : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
                   }`}
                 >
                   합산
                 </button>
                 <button
                   onClick={() => setTrendByCat(true)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    trendByCat
-                      ? "bg-[#465466] text-white"
-                      : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    trendByCat ? "bg-[#465466] text-white" : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
                   }`}
                 >
                   {cat === "all" ? "카테고리별" : "제품별"}
@@ -807,19 +971,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </div>
 
           <div className="md:col-span-3 md:col-start-5 md:pl-7 md:pr-[17px]">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-slate-700">
-                {primary.label} 상위 상품
-              </h3>
-              <button
-                type="button"
-                onClick={() => setDetailOpen((open) => !open)}
-                aria-pressed={detailOpen}
-                className="text-xs font-normal text-slate-400 transition hover:text-slate-600"
-              >
-                {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
-              </button>
-            </div>
+            <h3 className="mb-3 text-sm font-semibold text-slate-700">
+              {primary.label} 상위 상품{" "}
+              <span className="font-normal text-slate-400">
+                · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
+              </span>
+            </h3>
             <MetricRankList
               items={topRows.map((t, i) => ({
                 key: `${t.r.keyword ?? t.r.ad_group ?? t.r.campaign ?? "row"}-${i}`,
@@ -832,53 +989,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             />
           </div>
         </div>
-
-        {detailOpen && (
-          <DetailTable stage={stage} cat={cat} topRows={rankedRows} />
-        )}
       </section>
 
-      {/* 주요 변화 이슈 (전날 대비) */}
-      {data.hasData && (
-        <section className={CARD_CLASS}>
-          <h2 className="text-lg font-semibold text-slate-800">주요 변화 이슈</h2>
-          <p className="mb-4 text-sm text-slate-400">
-            {periodText} vs 전날({basePeriodText}) · 변화가 큰 순
-          </p>
-          {!base ? (
-            <p className="py-8 text-center text-sm text-slate-400">
-              전날 데이터가 없어 비교할 수 없습니다. 다른 날짜 데이터를 업로드하세요.
-            </p>
-          ) : issues.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">
-              전날 대비 큰 변화가 없습니다.
-            </p>
-          ) : (
-            <ul className="grid gap-2 md:grid-cols-2">
-              {issues.map((is, i) => (
-                <li
-                  key={i}
-                  className={`flex items-start gap-3 rounded-xl border p-3 ${
-                    is.tone === "up"
-                      ? "border-[#BFEFD2] bg-[#F4FFF8]"
-                      : is.tone === "warn"
-                        ? "border-[#D9D1FF] bg-[#F8F6FF]"
-                        : "border-[#D8DEE8] bg-[#F6F8FB]"
-                  }`}
-                >
-                  <span className="text-lg leading-none">{is.emoji}</span>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-800">
-                      {is.title}
-                    </div>
-                    <div className="text-xs text-slate-500">{is.detail}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
       </div>
     </>
   );
@@ -995,20 +1107,20 @@ function RangeCalendar({
             setOpen(true);
           }
         }}
-        className="flex items-center gap-2 rounded-lg bg-[#F7F8FA] px-3 py-2 text-sm font-semibold text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#EEF2F6]"
+        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
       >
         <span aria-hidden>📅</span>
         <span>{start ? label : "기간 선택"}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-lg border border-[#D8DEE8] bg-white p-3 shadow-[0_10px_22px_rgba(66,80,102,0.08)]">
+        <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
               onClick={() => canPrev && shift(-1)}
               disabled={!canPrev}
-              className="rounded-md px-2 py-1 text-[#6B7480] hover:bg-[#F3F6FA] disabled:opacity-30"
+              className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
             >
               ‹
             </button>
@@ -1019,7 +1131,7 @@ function RangeCalendar({
               type="button"
               onClick={() => canNext && shift(1)}
               disabled={!canNext}
-              className="rounded-md px-2 py-1 text-[#6B7480] hover:bg-[#F3F6FA] disabled:opacity-30"
+              className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
             >
               ›
             </button>
@@ -1047,10 +1159,10 @@ function RangeCalendar({
                     disabled
                       ? "cursor-default text-slate-300"
                       : isEdge(day)
-                        ? `${ACTIVE_CHIP_CLASS} font-semibold`
+                        ? "bg-emerald-600 font-semibold text-white"
                         : within(day)
-                          ? "bg-[#E8F8EF] text-[#027A38]"
-                          : "text-slate-700 hover:bg-[#F3F6FA]"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   {parse(day).d}
@@ -1103,67 +1215,6 @@ function ChangeRow({
         );
       })}
     </tr>
-  );
-}
-
-function DetailTable({
-  stage,
-  cat,
-  topRows,
-}: {
-  stage: FunnelStage;
-  cat: Filter;
-  topRows: { r: MetricRow; dm: DerivedMetrics; v: number }[];
-}) {
-  if (topRows.length === 0) return null;
-  return (
-    <div className="mt-6">
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">
-        {stage.label} 세부 지표
-      </h3>
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full text-sm">
-          <thead className="bg-[#F3F6FA] text-slate-500">
-            <tr>
-              <th className="px-3 py-2.5 text-left font-medium">상품명</th>
-              {cat === "all" && (
-                <th className="px-3 py-2.5 text-left font-medium">카테고리</th>
-              )}
-              {stage.columns.map((col) => (
-                <th key={col.label} className="px-3 py-2.5 text-right font-medium">
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {topRows.map(({ r, dm }, idx) => (
-              <tr key={idx} className="hover:bg-slate-50">
-                <td
-                  className="max-w-[360px] truncate px-3 py-2.5 text-slate-700"
-                  title={r.keyword ?? ""}
-                >
-                  {r.keyword ?? r.ad_group ?? r.campaign ?? "-"}
-                </td>
-                {cat === "all" && (
-                  <td className="px-3 py-2.5">
-                    <CategoryBadge slug={r.category} />
-                  </td>
-                )}
-                {stage.columns.map((col) => (
-                  <td
-                    key={col.label}
-                    className="px-3 py-2.5 text-right tabular-nums text-slate-800"
-                  >
-                    {col.value(dm)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }
 
@@ -1286,6 +1337,43 @@ function BreakdownCard({
   );
 }
 
+function MetricBreakdown({
+  items,
+  fmt,
+  unit = "",
+}: {
+  items: {
+    slug: string;
+    label: string;
+    value: number;
+    prev: number | null;
+    color: string;
+  }[];
+  fmt: (n: number) => string;
+  unit?: string;
+}) {
+  const formatValue = (value: number) => `${fmt(value)}${unit}`;
+
+  return (
+    <div className="space-y-2.5">
+      {items.map((item) => (
+        <div
+          key={item.slug}
+          className="grid grid-cols-[6rem_minmax(0,1fr)_3.5rem] items-center gap-2 text-sm"
+        >
+          <span className="whitespace-nowrap text-slate-600">{item.label}</span>
+          <span className="min-w-0 whitespace-nowrap text-right tabular-nums font-semibold text-slate-800">
+            {formatValue(item.value)}
+          </span>
+          <span className="whitespace-nowrap text-right">
+            <Delta curr={item.value} prev={item.prev} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Tab({
   active,
   onClick,
@@ -1309,30 +1397,16 @@ function Tab({
   );
 }
 
-function CategoryBadge({ slug }: { slug: string }) {
-  const label = CATEGORIES.find((c) => c.slug === slug)?.label ?? slug;
-  const color = CATEGORY_COLORS[slug] ?? "#94a3b8";
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-      <span
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      {label}
-    </span>
-  );
-}
-
 function Banner({
   tone,
   children,
 }: {
-  tone: "purple" | "blue";
+  tone: "amber" | "blue";
   children: React.ReactNode;
 }) {
   const tones = {
-    purple: "border-[#D9D1FF] bg-[#F8F6FF] text-[#5B3FD6]",
-    blue: "border-[#D8DEE8] bg-white text-[#2F5FB8]",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    blue: "border-blue-200 bg-blue-50 text-blue-800",
   };
   return (
     <div className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>

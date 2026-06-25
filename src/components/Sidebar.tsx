@@ -10,9 +10,6 @@ const ICON = {
   dashboard: (
     <path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z" />
   ),
-  manage: (
-    <path d="M4 5h16M4 12h16M4 19h16" strokeWidth="2" strokeLinecap="round" />
-  ),
   upload: (
     <path
       d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"
@@ -21,6 +18,12 @@ const ICON = {
       strokeLinejoin="round"
       fill="none"
     />
+  ),
+  glossary: (
+    <>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" />
+      <path d="M8 7h8M8 11h6M6.5 19H20" />
+    </>
   ),
   budget: (
     <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
@@ -45,15 +48,6 @@ const NAV: NavItem[] = [
     ),
   },
   {
-    href: "/manage",
-    label: "데이터 관리",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-current">
-        {ICON.manage}
-      </svg>
-    ),
-  },
-  {
     href: "/upload",
     label: "데이터 업로드",
     icon: (
@@ -63,8 +57,8 @@ const NAV: NavItem[] = [
     ),
   },
   {
-    href: "/budget",
-    label: "예산 설정",
+    href: "/glossary",
+    label: "마케팅 용어사전",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -73,7 +67,7 @@ const NAV: NavItem[] = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        {ICON.budget}
+        {ICON.glossary}
       </svg>
     ),
   },
@@ -103,12 +97,15 @@ const itemActive =
   "bg-gradient-to-r from-[#03C75A] via-[#20B7E8] to-[#8B5CF6] text-white shadow-[0_10px_20px_rgba(3,199,90,0.14)]";
 const itemIdle =
   "border border-transparent text-[#EEF2F7] hover:border-[#667384] hover:bg-[#3D4A5A] hover:text-white";
-
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { showChange, toggle } = useChangeAnalysis();
   const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
+
+  const leaveChangeMode = () => {
+    if (showChange) toggle();
+  };
 
   const onChangeClick = () => {
     if (pathname !== "/") {
@@ -133,11 +130,15 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
 
       <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.map((item) => {
-          const active = pathname === item.href;
+          const active =
+            item.href === "/"
+              ? pathname === "/" && !showChange
+              : pathname === item.href && !showChange;
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={leaveChangeMode}
               className={`${itemBase} ${active ? itemActive : itemIdle}`}
             >
               {item.icon}
