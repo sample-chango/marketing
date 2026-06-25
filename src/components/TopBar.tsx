@@ -16,7 +16,7 @@ export function TopBar({
   contentClassName?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-[#D8DEE8] bg-[#F8FAFC]/95 shadow-[0_1px_0_rgba(66,80,102,0.04)] backdrop-blur">
+    <header className="sticky top-0 z-30 w-full border-b border-[#D8DEE8] bg-[#EEF2F6] shadow-[0_1px_0_rgba(66,80,102,0.04)] backdrop-blur">
       <div
         className={`mx-auto flex ${maxWidth} flex-wrap items-center justify-between gap-3 ${contentClassName}`}
       >
