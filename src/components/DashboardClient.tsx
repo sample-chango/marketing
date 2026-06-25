@@ -777,7 +777,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           })}
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid gap-6 pl-4 lg:grid-cols-2">
           <div>
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
               카테고리별 {primary.label}
