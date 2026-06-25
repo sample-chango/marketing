@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export interface CategorySlice {
   label: string;
   value: number;
@@ -14,8 +16,10 @@ export function CategoryBars({
   slices: CategorySlice[];
   valueFormatter?: (value: number) => string;
 }) {
+  const [showPercent, setShowPercent] = useState(false);
   const total = slices.reduce((s, d) => s + d.value, 0);
   const data = [...slices].sort((a, b) => b.value - a.value);
+  const canToggleValue = Boolean(valueFormatter);
 
   if (data.length === 0) {
     return (
@@ -31,6 +35,10 @@ export function CategoryBars({
         const pct = total > 0 ? (d.value / total) * 100 : 0;
         const width = pct > 0 ? Math.max(4, pct) : 0;
         const isPrimary = index === 0;
+        const metricText =
+          canToggleValue && !showPercent && valueFormatter
+            ? valueFormatter(d.value)
+            : `${pct.toFixed(0)}%`;
         return (
           <div key={d.label} className="space-y-1.5">
             <div className="flex items-center justify-between gap-3 text-[11px]">
@@ -43,19 +51,19 @@ export function CategoryBars({
                 />
                 <span className="truncate">{d.label}</span>
               </span>
-              {valueFormatter ? (
-                <span className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                  <span
-                    className={
-                      isPrimary
-                        ? "font-bold text-slate-900"
-                        : "font-semibold text-slate-600"
-                    }
-                  >
-                    {valueFormatter(d.value)}
-                  </span>
-                  <span className="text-slate-300">{pct.toFixed(0)}%</span>
-                </span>
+              {canToggleValue ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPercent((value) => !value)}
+                  aria-label={`${d.label} 표시 전환`}
+                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-right tabular-nums transition hover:bg-[#EEF2F6] ${
+                    isPrimary
+                      ? "font-bold text-slate-900"
+                      : "font-semibold text-slate-600"
+                  }`}
+                >
+                  {metricText}
+                </button>
               ) : (
                 <span
                   className={`tabular-nums ${

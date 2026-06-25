@@ -47,7 +47,7 @@ const BRAND = {
 const CARD_CLASS =
   "rounded-[15px] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const ACTIVE_CHIP_CLASS =
-  "bg-[#03C75A] text-white shadow-[0_10px_18px_rgba(32,183,232,0.22)]";
+  "bg-[#03C75A] text-white shadow-[0_4px_10px_-5px_rgba(3,199,90,0.14)]";
 const IDLE_CHIP_CLASS =
   "bg-[#EEF2F6] text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]";
 
@@ -578,27 +578,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <BreakdownCard
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
-          wow={
-            <WoW curr={o.conversions} prev={base?.conversions ?? null} fmt={fmtInt} showDetail={showChange} onClick={toggleChange} />
-          }
           valueFormatter={(value) => `${fmtInt(value)}개`}
           slices={slicesOf((m) => m.conversions)}
         />
         <BreakdownCard
           title="총 매출액"
           value={fmtWon(o.conversionValue)}
-          wow={
-            <WoW curr={o.conversionValue} prev={base?.conversionValue ?? null} fmt={fmtWon} showDetail={showChange} onClick={toggleChange} />
-          }
           valueFormatter={fmtWon}
           slices={slicesOf((m) => m.conversionValue)}
         />
         <BreakdownCard
           title="총 광고비"
           value={fmtWon(o.cost)}
-          wow={
-            <WoW curr={o.cost} prev={base?.cost ?? null} fmt={fmtWon} goodWhenUp={false} showDetail={showChange} onClick={toggleChange} />
-          }
           valueFormatter={fmtWon}
           action={
             <button
@@ -1188,7 +1179,7 @@ function BreakdownCard({
 }: {
   title: string;
   value: string;
-  wow: React.ReactNode;
+  wow?: React.ReactNode;
   action?: React.ReactNode;
   slices: { label: string; value: number; color: string }[];
   valueFormatter?: (value: number) => string;
@@ -1201,10 +1192,12 @@ function BreakdownCard({
           <div className="text-sm font-medium text-slate-500">{title}</div>
           <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {wow}
-          {action}
-        </div>
+        {(wow || action) && (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {wow}
+            {action}
+          </div>
+        )}
       </div>
       <div className="mt-3">
         <CategoryBars slices={slices} valueFormatter={valueFormatter} />
