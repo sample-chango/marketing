@@ -799,7 +799,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="pl-[30px] text-sm font-semibold text-slate-700">
+              <h3 className="text-sm font-semibold text-slate-700">
                 {primary.label} 상위 상품
               </h3>
               <button
