@@ -116,6 +116,23 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     }
   };
 
+  const renderNavItem = (item: NavItem) => {
+    const active =
+      item.href === "/"
+        ? pathname === "/" && !showChange
+        : pathname === item.href && !showChange;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={leaveChangeMode}
+        className={`${itemBase} ${active ? itemActive : itemIdle}`}
+      >
+        {item.icon}
+        {item.label}
+      </Link>
+    );
+  };
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#3A4656] bg-[#465466] text-white shadow-[10px_0_28px_rgba(37,48,63,0.08)] md:flex">
       <div className="flex items-center gap-4 px-5 py-5">
@@ -129,23 +146,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {navItems.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/" && !showChange
-              : pathname === item.href && !showChange;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={leaveChangeMode}
-              className={`${itemBase} ${active ? itemActive : itemIdle}`}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          );
-        })}
+        {navItems.slice(0, 1).map(renderNavItem)}
 
         <button
           type="button"
@@ -165,6 +166,8 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
           </svg>
           변화 분석
         </button>
+
+        {navItems.slice(1).map(renderNavItem)}
       </nav>
 
       <div className="border-t border-[#556272] p-3">
