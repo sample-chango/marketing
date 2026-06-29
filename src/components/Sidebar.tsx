@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useChangeAnalysis } from "@/components/AppShell";
@@ -102,12 +103,31 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter();
   const { showChange, setShowChange } = useChangeAnalysis();
   const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
-  const leaveChangeMode = (href: string) => {
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/upload");
+    router.prefetch("/glossary");
+    if (isAdmin) router.prefetch("/admin/signups");
+  }, [isAdmin, router]);
+
+  useEffect(() => {
+    if (!pendingNav) return;
+    if (pendingNav === "change") {
+      if (pathname === "/" && showChange) setPendingNav(null);
+      return;
+    }
+    if (pathname === pendingNav) setPendingNav(null);
+  }, [pathname, pendingNav, showChange]);
+
+  const activateLink = (href: string) => {
+    setPendingNav(href);
     if (href === "/") setShowChange(false);
   };
 
   const onChangeClick = () => {
+    setPendingNav("change");
     setShowChange(true);
     if (pathname !== "/") {
       router.push("/");
@@ -115,15 +135,16 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   };
 
   const renderNavItem = (item: NavItem) => {
-    const active =
-      item.href === "/"
+    const active = pendingNav
+      ? pendingNav === item.href
+      : item.href === "/"
         ? pathname === "/" && !showChange
         : pathname === item.href;
     return (
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => leaveChangeMode(item.href)}
+        onClick={() => activateLink(item.href)}
         className={`${itemBase} ${active ? itemActive : itemIdle}`}
       >
         {item.icon}
@@ -150,7 +171,9 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
           type="button"
           onClick={onChangeClick}
           className={`${itemBase} w-full ${
-            showChange && pathname === "/" ? itemActive : itemIdle
+            pendingNav === "change" || (!pendingNav && showChange && pathname === "/")
+              ? itemActive
+              : itemIdle
           }`}
         >
           <svg

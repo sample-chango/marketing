@@ -333,6 +333,190 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     analysisBStart,
     analysisStorageLoaded,
   ]);
+  // 변화분석은 대시보드 집계보다 먼저 처리해 메뉴 전환을 가볍게 유지한다.
+  const normalizeAnalysisRange = (start: string, end: string, fallback: string) => {
+    let s = start && allDates.includes(start) ? start : fallback;
+    let e = end && allDates.includes(end) ? end : fallback;
+    if (s && e && s > e) [s, e] = [e, s];
+    return { start: s, end: e };
+  };
+  const rangeText = (start: string, end: string) =>
+    start
+      ? start === end
+        ? fmtDate(start)
+        : `${fmtDate(start)} - ${fmtDate(end)}`
+      : "기간 없음";
+  const rowsBetween = (start: string, end: string) =>
+    data.rows.filter((r) => {
+      const d = rowDate(r);
+      return d >= start && d <= end;
+    });
+
+  const analysisA = normalizeAnalysisRange(analysisAStart, analysisAEnd, previous);
+  const analysisB = normalizeAnalysisRange(analysisBStart, analysisBEnd, latest);
+  const analysisARows = rowsBetween(analysisA.start, analysisA.end);
+  const analysisBRows = rowsBetween(analysisB.start, analysisB.end);
+  const analysisAMetrics = agg(analysisARows);
+  const analysisBMetrics = agg(analysisBRows);
+  const analysisByCategoryA = byCatOf(analysisARows);
+  const analysisByCategoryB = byCatOf(analysisBRows);
+  const analysisIssues = buildIssues(analysisBRows, analysisARows);
+  const analysisBaseMetric = (
+    slug: string,
+    pick: (m: DerivedMetrics) => number,
+  ) => {
+    const m = analysisByCategoryA.find((c) => c.slug === slug)?.metrics;
+    return m ? pick(m) : null;
+  };
+  const analysisHasRows = analysisARows.length > 0 || analysisBRows.length > 0;
+
+  if (showChange) {
+    return (
+      <>
+        <TopBar title="Change Analysis" />
+        <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
+          {!data.configured && (
+            <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
+          )}
+          {data.configured && !data.hasData && (
+            <Banner tone="blue">
+              데이터가 없습니다. 우측 상단 <b>데이터 업로드</b>에서 네이버 보고서를
+              올리세요.
+            </Banner>
+          )}
+
+          <section className={CARD_CLASS}>
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-slate-800">변화 분석</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                원하는 두 기간을 선택해 카테고리별 변화를 비교합니다.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-600">기간 A</div>
+                <RangeCalendar
+                  start={analysisA.start}
+                  end={analysisA.end}
+                  min={earliest}
+                  max={latest}
+                  onChange={(s, e) => {
+                    setAnalysisAStart(s);
+                    setAnalysisAEnd(e);
+                  }}
+                />
+                <div className="text-xs text-slate-400">
+                  {rangeText(analysisA.start, analysisA.end)}
+                </div>
+              </div>
+              <div className="pb-8 text-center text-xs font-semibold text-slate-400">VS</div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-600">기간 B</div>
+                <RangeCalendar
+                  start={analysisB.start}
+                  end={analysisB.end}
+                  min={earliest}
+                  max={latest}
+                  onChange={(s, e) => {
+                    setAnalysisBStart(s);
+                    setAnalysisBEnd(e);
+                  }}
+                />
+                <div className="text-xs text-slate-400">
+                  {rangeText(analysisB.start, analysisB.end)}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className={CARD_CLASS}>
+            <h3 className="mb-3 font-semibold text-slate-800">
+              비교 결과{" "}
+              <span className="text-sm font-normal text-slate-400">
+                기간 B vs 기간 A
+              </span>
+            </h3>
+            {!analysisHasRows ? (
+              <p className="py-6 text-center text-sm text-slate-400">
+                선택한 기간에 비교할 데이터가 없습니다.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-slate-500">
+                    <tr className="border-b border-slate-200">
+                      <th className="px-2 py-2 text-left font-medium">카테고리</th>
+                      {CHANGE_COLS.map((c) => (
+                        <th key={c.label} className="px-2 py-2 text-right font-medium">
+                          {c.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <ChangeRow
+                      label="전체"
+                      bold
+                      metrics={analysisBMetrics}
+                      baseMetrics={analysisAMetrics}
+                    />
+                    {analysisByCategoryB.map((c) => (
+                      <ChangeRow
+                        key={c.slug}
+                        label={c.label}
+                        metrics={c.metrics}
+                        basePick={(pick) => analysisBaseMetric(c.slug, pick)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className={CARD_CLASS}>
+            <h3 className="text-lg font-semibold text-slate-800">주요 변화 이슈 TOP5</h3>
+            <p className="mb-4 text-sm text-slate-400">
+              {rangeText(analysisB.start, analysisB.end)} vs {rangeText(analysisA.start, analysisA.end)} · 변화가 큰 순
+            </p>
+            {analysisARows.length === 0 || analysisBRows.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                두 기간 모두에 데이터가 있어야 주요 변화 이슈를 계산할 수 있습니다.
+              </p>
+            ) : analysisIssues.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                선택한 기간 사이에 큰 변화가 없습니다.
+              </p>
+            ) : (
+              <ul className="grid gap-2 md:grid-cols-2">
+                {analysisIssues.map((issue, i) => (
+                  <li
+                    key={i}
+                    className={`flex items-start gap-3 rounded-xl border p-3 ${
+                      issue.tone === "up"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : issue.tone === "warn"
+                          ? "border-amber-200 bg-amber-50"
+                          : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{issue.emoji}</span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-slate-800">
+                        {issue.title}
+                      </div>
+                      <div className="text-xs text-slate-500">{issue.detail}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </>
+    );
+  }
+
   // 유효 범위 (데이터 범위로 보정)
   let rs = rangeStart && allDates.includes(rangeStart) ? rangeStart : earliest;
   let re = rangeEnd && allDates.includes(rangeEnd) ? rangeEnd : latest;
@@ -521,189 +705,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       color: CATEGORY_COLORS[c.slug],
     }))
     .sort((a, b) => b.value - a.value);
-
-  const normalizeAnalysisRange = (start: string, end: string, fallback: string) => {
-    let s = start && allDates.includes(start) ? start : fallback;
-    let e = end && allDates.includes(end) ? end : fallback;
-    if (s && e && s > e) [s, e] = [e, s];
-    return { start: s, end: e };
-  };
-  const rangeText = (start: string, end: string) =>
-    start
-      ? start === end
-        ? fmtDate(start)
-        : `${fmtDate(start)} - ${fmtDate(end)}`
-      : "기간 없음";
-  const rowsBetween = (start: string, end: string) =>
-    data.rows.filter((r) => {
-      const d = rowDate(r);
-      return d >= start && d <= end;
-    });
-
-  const analysisA = normalizeAnalysisRange(analysisAStart, analysisAEnd, previous);
-  const analysisB = normalizeAnalysisRange(analysisBStart, analysisBEnd, latest);
-  const analysisARows = rowsBetween(analysisA.start, analysisA.end);
-  const analysisBRows = rowsBetween(analysisB.start, analysisB.end);
-  const analysisAMetrics = agg(analysisARows);
-  const analysisBMetrics = agg(analysisBRows);
-  const analysisByCategoryA = byCatOf(analysisARows);
-  const analysisByCategoryB = byCatOf(analysisBRows);
-  const analysisIssues = buildIssues(analysisBRows, analysisARows);
-  const analysisBaseMetric = (
-    slug: string,
-    pick: (m: DerivedMetrics) => number,
-  ) => {
-    const m = analysisByCategoryA.find((c) => c.slug === slug)?.metrics;
-    return m ? pick(m) : null;
-  };
-  const analysisHasRows = analysisARows.length > 0 || analysisBRows.length > 0;
-
-  if (showChange) {
-    return (
-      <>
-        <TopBar title="Change Analysis" />
-        <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
-          {!data.configured && (
-            <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
-          )}
-          {data.configured && !data.hasData && (
-            <Banner tone="blue">
-              데이터가 없습니다. 우측 상단 <b>데이터 업로드</b>에서 네이버 보고서를
-              올리세요.
-            </Banner>
-          )}
-
-          <section className={CARD_CLASS}>
-            <div className="mb-5">
-              <h2 className="text-lg font-semibold text-slate-800">변화 분석</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                원하는 두 기간을 선택해 카테고리별 변화를 비교합니다.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-600">기간 A</div>
-                <RangeCalendar
-                  start={analysisA.start}
-                  end={analysisA.end}
-                  min={earliest}
-                  max={latest}
-                  onChange={(s, e) => {
-                    setAnalysisAStart(s);
-                    setAnalysisAEnd(e);
-                  }}
-                />
-                <div className="text-xs text-slate-400">
-                  {rangeText(analysisA.start, analysisA.end)}
-                </div>
-              </div>
-              <div className="pb-8 text-center text-xs font-semibold text-slate-400">VS</div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-600">기간 B</div>
-                <RangeCalendar
-                  start={analysisB.start}
-                  end={analysisB.end}
-                  min={earliest}
-                  max={latest}
-                  onChange={(s, e) => {
-                    setAnalysisBStart(s);
-                    setAnalysisBEnd(e);
-                  }}
-                />
-                <div className="text-xs text-slate-400">
-                  {rangeText(analysisB.start, analysisB.end)}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className={CARD_CLASS}>
-            <h3 className="mb-3 font-semibold text-slate-800">
-              비교 결과{" "}
-              <span className="text-sm font-normal text-slate-400">
-                기간 B vs 기간 A
-              </span>
-            </h3>
-            {!analysisHasRows ? (
-              <p className="py-6 text-center text-sm text-slate-400">
-                선택한 기간에 비교할 데이터가 없습니다.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-slate-500">
-                    <tr className="border-b border-slate-200">
-                      <th className="px-2 py-2 text-left font-medium">카테고리</th>
-                      {CHANGE_COLS.map((c) => (
-                        <th key={c.label} className="px-2 py-2 text-right font-medium">
-                          {c.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    <ChangeRow
-                      label="전체"
-                      bold
-                      metrics={analysisBMetrics}
-                      baseMetrics={analysisAMetrics}
-                    />
-                    {analysisByCategoryB.map((c) => (
-                      <ChangeRow
-                        key={c.slug}
-                        label={c.label}
-                        metrics={c.metrics}
-                        basePick={(pick) => analysisBaseMetric(c.slug, pick)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className={CARD_CLASS}>
-            <h3 className="text-lg font-semibold text-slate-800">주요 변화 이슈 TOP5</h3>
-            <p className="mb-4 text-sm text-slate-400">
-              {rangeText(analysisB.start, analysisB.end)} vs {rangeText(analysisA.start, analysisA.end)} · 변화가 큰 순
-            </p>
-            {analysisARows.length === 0 || analysisBRows.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">
-                두 기간 모두에 데이터가 있어야 주요 변화 이슈를 계산할 수 있습니다.
-              </p>
-            ) : analysisIssues.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">
-                선택한 기간 사이에 큰 변화가 없습니다.
-              </p>
-            ) : (
-              <ul className="grid gap-2 md:grid-cols-2">
-                {analysisIssues.map((issue, i) => (
-                  <li
-                    key={i}
-                    className={`flex items-start gap-3 rounded-xl border p-3 ${
-                      issue.tone === "up"
-                        ? "border-emerald-200 bg-emerald-50"
-                        : issue.tone === "warn"
-                          ? "border-amber-200 bg-amber-50"
-                          : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <span className="text-lg leading-none">{issue.emoji}</span>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-800">
-                        {issue.title}
-                      </div>
-                      <div className="text-xs text-slate-500">{issue.detail}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
