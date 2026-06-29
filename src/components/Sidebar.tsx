@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useChangeAnalysis } from "@/components/AppShell";
@@ -101,9 +102,10 @@ const itemIdle =
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { showChange, setShowChange } = useChangeAnalysis();
+  const { pendingNav, setPendingNav, showChange, setShowChange } =
+    useChangeAnalysis();
   const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
-  const [pendingNav, setPendingNav] = useState<string | null>(null);
+  const primedTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     router.prefetch("/");
@@ -112,23 +114,32 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     if (isAdmin) router.prefetch("/admin/signups");
   }, [isAdmin, router]);
 
-  useEffect(() => {
-    if (!pendingNav) return;
-    if (pendingNav === "change") {
-      if (pathname === "/" && showChange) setPendingNav(null);
-      return;
-    }
-    if (pathname === pendingNav) setPendingNav(null);
-  }, [pathname, pendingNav, showChange]);
-
   const activateLink = (href: string) => {
-    setPendingNav(href);
-    if (href === "/") setShowChange(false);
+    const alreadyActive =
+      href === "/" ? pathname === "/" && !showChange : pathname === href;
+    flushSync(() => {
+      setPendingNav(alreadyActive ? null : href);
+      if (href === "/") setShowChange(false);
+    });
+  };
+
+  const activateChange = () => {
+    if (pathname === "/" && showChange) return;
+    flushSync(() => {
+      setPendingNav("change");
+      setShowChange(true);
+    });
+  };
+
+  const onChangePointerDown = (button: number) => {
+    if (button !== 0) return;
+    primedTargetRef.current = "change";
+    activateChange();
   };
 
   const onChangeClick = () => {
-    setPendingNav("change");
-    setShowChange(true);
+    if (primedTargetRef.current !== "change") activateChange();
+    primedTargetRef.current = null;
     if (pathname !== "/") {
       router.push("/");
     }
@@ -144,7 +155,17 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => activateLink(item.href)}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          primedTargetRef.current = item.href;
+          activateLink(item.href);
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          if (primedTargetRef.current !== item.href) activateLink(item.href);
+          primedTargetRef.current = null;
+          if (pathname !== item.href) router.push(item.href);
+        }}
         className={`${itemBase} ${active ? itemActive : itemIdle}`}
       >
         {item.icon}
@@ -169,6 +190,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
 
         <button
           type="button"
+          onPointerDown={(event) => onChangePointerDown(event.button)}
           onClick={onChangeClick}
           className={`${itemBase} w-full ${
             pendingNav === "change" || (!pendingNav && showChange && pathname === "/")

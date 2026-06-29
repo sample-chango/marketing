@@ -1,9 +1,14 @@
 import { MarketingGlossaryClient } from "@/components/MarketingGlossaryClient";
-import { getDashboardData } from "@/lib/data";
+import type { DashboardData } from "@/lib/data";
 
-export const dynamic = "force-dynamic";
+const emptyDashboardData: DashboardData = {
+  configured: true,
+  hasData: false,
+  rows: [],
+  periods: [],
+  dailyBudget: 40000,
+};
 
-export default async function GlossaryPage() {
-  const data = await getDashboardData();
-  return <MarketingGlossaryClient data={data} />;
+export default function GlossaryPage() {
+  return <MarketingGlossaryClient data={emptyDashboardData} />;
 }
