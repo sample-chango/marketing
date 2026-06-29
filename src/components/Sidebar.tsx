@@ -100,19 +100,17 @@ const itemIdle =
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { showChange, toggle } = useChangeAnalysis();
+  const { showChange, setShowChange } = useChangeAnalysis();
   const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
 
-  const leaveChangeMode = () => {
-    if (showChange) toggle();
+  const leaveChangeMode = (href: string) => {
+    if (href === "/") setShowChange(false);
   };
 
   const onChangeClick = () => {
+    setShowChange(true);
     if (pathname !== "/") {
       router.push("/");
-      if (!showChange) toggle();
-    } else {
-      toggle();
     }
   };
 
@@ -120,12 +118,12 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     const active =
       item.href === "/"
         ? pathname === "/" && !showChange
-        : pathname === item.href && !showChange;
+        : pathname === item.href;
     return (
       <Link
         key={item.href}
         href={item.href}
-        onClick={leaveChangeMode}
+        onClick={() => leaveChangeMode(item.href)}
         className={`${itemBase} ${active ? itemActive : itemIdle}`}
       >
         {item.icon}

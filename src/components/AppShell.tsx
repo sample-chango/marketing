@@ -1,13 +1,18 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 
-type ChangeAnalysis = { showChange: boolean; toggle: () => void };
+type ChangeAnalysis = {
+  showChange: boolean;
+  setShowChange: (show: boolean) => void;
+  toggle: () => void;
+};
 
 const ChangeContext = createContext<ChangeAnalysis>({
   showChange: false,
+  setShowChange: () => {},
   toggle: () => {},
 });
 
@@ -25,6 +30,10 @@ export function AppShell({
   const pathname = usePathname();
   const [showChange, setShowChange] = useState(false);
 
+  useEffect(() => {
+    if (pathname !== "/") setShowChange(false);
+  }, [pathname]);
+
   if (
     pathname === "/login" ||
     pathname === "/signup" ||
@@ -36,7 +45,11 @@ export function AppShell({
 
   return (
     <ChangeContext.Provider
-      value={{ showChange, toggle: () => setShowChange((value) => !value) }}
+      value={{
+        showChange,
+        setShowChange,
+        toggle: () => setShowChange((value) => !value),
+      }}
     >
       <Sidebar isAdmin={isAdmin} />
       <div className="min-h-full md:pl-60">{children}</div>
