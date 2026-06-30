@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApprovalStatus, isAdminUser } from "@/lib/authz";
+import { isAdminUser } from "@/lib/authz";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,45 +11,6 @@ function redirectBack(request: Request) {
   });
 }
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user || !isAdminUser(user)) {
-    return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-  }
-
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const pendingUsers = (data.users ?? [])
-    .filter((candidate) => getApprovalStatus(candidate) === "pending")
-    .map((candidate) => ({
-      id: candidate.id,
-      email: candidate.email ?? null,
-      requestedAt:
-        typeof candidate.app_metadata?.requested_at === "string"
-          ? candidate.app_metadata.requested_at
-          : null,
-      createdAt: candidate.created_at,
-    }))
-    .sort((a, b) => {
-      const aTime = a.requestedAt ?? a.createdAt;
-      const bTime = b.requestedAt ?? b.createdAt;
-      return bTime.localeCompare(aTime);
-    });
-
-  return NextResponse.json({ pendingUsers });
-}
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {

@@ -439,32 +439,10 @@ function compareRows(aMetrics: DerivedMetrics, bMetrics: DerivedMetrics) {
 }
 
 export function MarketingGlossaryClient({ data }: { data: DashboardData }) {
-  const [liveData, setLiveData] = useState(data);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<GroupFilter>("all");
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadDashboardData() {
-      try {
-        const response = await fetch("/api/dashboard-data", { cache: "no-store" });
-        if (!response.ok) return;
-        const nextData = (await response.json()) as DashboardData;
-        if (!cancelled) setLiveData(nextData);
-      } catch {
-        // 용어사전 본문은 데이터 없이도 바로 볼 수 있어야 한다.
-      }
-    }
-
-    loadDashboardData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const allDates = useMemo(() => [...new Set(liveData.rows.map(rowDate))].sort(), [liveData.rows]);
+  const allDates = useMemo(() => [...new Set(data.rows.map(rowDate))].sort(), [data.rows]);
   const allDatesKey = allDates.join("|");
   const latest = allDates[allDates.length - 1] ?? "";
   const previous = allDates[allDates.length - 2] ?? latest;
@@ -498,12 +476,12 @@ export function MarketingGlossaryClient({ data }: { data: DashboardData }) {
     [allDates, latest, storedRanges.bEnd, storedRanges.bStart],
   );
   const rowsA = useMemo(
-    () => rowsBetween(liveData.rows, rangeA.start, rangeA.end),
-    [liveData.rows, rangeA.end, rangeA.start],
+    () => rowsBetween(data.rows, rangeA.start, rangeA.end),
+    [data.rows, rangeA.end, rangeA.start],
   );
   const rowsB = useMemo(
-    () => rowsBetween(liveData.rows, rangeB.start, rangeB.end),
-    [liveData.rows, rangeB.end, rangeB.start],
+    () => rowsBetween(data.rows, rangeB.start, rangeB.end),
+    [data.rows, rangeB.end, rangeB.start],
   );
   const metricsA = useMemo(() => aggregate(rowsA), [rowsA]);
   const metricsB = useMemo(() => aggregate(rowsB), [rowsB]);
@@ -516,9 +494,9 @@ export function MarketingGlossaryClient({ data }: { data: DashboardData }) {
         bRows: rowsB,
         bStart: rangeB.start,
         bEnd: rangeB.end,
-        dailyBudget: liveData.dailyBudget,
+        dailyBudget: data.dailyBudget,
       }),
-    [liveData.dailyBudget, metricsA, metricsB, rangeB.end, rangeB.start, rowsA, rowsB],
+    [data.dailyBudget, metricsA, metricsB, rangeB.end, rangeB.start, rowsA, rowsB],
   );
   const metricRows = useMemo(() => compareRows(metricsA, metricsB), [metricsA, metricsB]);
 
