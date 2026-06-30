@@ -141,14 +141,14 @@ const terms: Term[] = [
     group: "analysis",
     short: "두 기간의 성과를 나란히 비교하는 화면",
     detail:
-      "기간 A와 기간 B를 비교해 매출, 전환, 광고비, ROAS가 어느 쪽으로 움직였는지 확인하는 분석 화면입니다.",
+      "기준기간과 비교기간을 나란히 두고 매출, 전환, 광고비, ROAS가 어느 쪽으로 움직였는지 확인하는 분석 화면입니다.",
   },
   {
-    term: "기간 A / 기간 B",
+    term: "기준 기간 / 비교 기간",
     group: "analysis",
-    short: "비교 기준 기간과 현재 확인 기간",
+    short: "비교의 출발점과 변화 확인 대상",
     detail:
-      "보통 기간 A는 비교 기준, 기간 B는 확인하려는 기간으로 봅니다. 같은 길이의 기간끼리 비교하면 해석이 더 깔끔합니다.",
+      "기준 기간은 비교의 출발점이고, 비교 기간은 성과 변화를 확인하는 대상입니다. 같은 길이의 기간끼리 비교하면 증감률을 더 깔끔하게 해석할 수 있습니다.",
   },
   {
     term: "주요 변화 이슈",
@@ -290,6 +290,59 @@ function deltaText(delta: number | null) {
   return `${delta >= 0 ? "+" : "-"}${Math.abs(delta * 100).toFixed(1)}%`;
 }
 
+function roasTipBody({
+  aMetrics,
+  bMetrics,
+  roasDelta,
+  revenueDelta,
+  costDelta,
+}: {
+  aMetrics: DerivedMetrics;
+  bMetrics: DerivedMetrics;
+  roasDelta: number;
+  revenueDelta: number | null;
+  costDelta: number | null;
+}) {
+  const direction = roasDelta > 0 ? "개선" : "하락";
+  const summary = `ROAS는 ${fmtRoas(aMetrics.roas)}에서 ${fmtRoas(bMetrics.roas)}로 ${direction}했습니다.`;
+
+  if (revenueDelta == null || costDelta == null) {
+    return `${summary} 매출 또는 광고비 기준값이 부족해 변화율 계산이 제한됩니다. 비교기간의 매출 구성과 광고비 사용처를 함께 확인하세요.`;
+  }
+
+  const changeSummary = `매출은 ${deltaText(revenueDelta)}, 광고비는 ${deltaText(costDelta)}입니다.`;
+
+  if (roasDelta < 0) {
+    if (revenueDelta < 0 && costDelta >= 0) {
+      return `${summary} ${changeSummary} 매출은 줄고 광고비는 늘어 효율이 크게 약해진 흐름입니다. 비용이 늘어난 검색어·카테고리를 먼저 줄이고, 매출이 빠진 구간의 전환수와 CVR을 확인하세요.`;
+    }
+
+    if (revenueDelta >= 0 && costDelta > revenueDelta) {
+      return `${summary} ${changeSummary} 매출도 늘었지만 광고비가 더 빠르게 늘어 ROAS가 낮아졌습니다. 증액된 캠페인 중 전환율이 낮은 검색어와 소재부터 예산을 조정하는 편이 좋습니다.`;
+    }
+
+    if (revenueDelta < 0 && costDelta < 0) {
+      return `${summary} ${changeSummary} 광고비도 줄었지만 매출이 더 크게 줄어 ROAS가 하락했습니다. 예산을 줄인 구간에서 효율 좋은 검색어까지 같이 꺼졌는지 확인하고, 매출 방어가 되는 항목은 유지하세요.`;
+    }
+
+    return `${summary} ${changeSummary} 광고비 대비 매출 증가가 부족해 ROAS가 낮아졌습니다. 비교기간에서 비용 비중이 커진 항목과 매출 기여가 낮은 항목을 나눠서 조정하세요.`;
+  }
+
+  if (revenueDelta > 0 && costDelta <= 0) {
+    return `${summary} ${changeSummary} 매출은 늘고 광고비는 줄어 가장 좋은 개선 흐름입니다. 이 구간의 검색어, 소재, 랜딩 조합을 우선 유지하고 비슷한 조건으로 확장 테스트를 해볼 만합니다.`;
+  }
+
+  if (revenueDelta > costDelta && revenueDelta > 0) {
+    return `${summary} ${changeSummary} 광고비도 늘었지만 매출이 더 빠르게 늘어 효율이 좋아졌습니다. 성과가 나온 카테고리는 예산을 조금씩 늘리되, 같은 ROAS가 유지되는지 확인하세요.`;
+  }
+
+  if (revenueDelta < 0 && costDelta < 0) {
+    return `${summary} ${changeSummary} 매출도 줄었지만 광고비를 더 크게 줄여 효율은 개선됐습니다. 다만 규모가 줄어든 개선일 수 있으니 전환수 감소가 감당 가능한 수준인지 같이 보세요.`;
+  }
+
+  return `${summary} ${changeSummary} 매출 대비 비용 구조가 좋아졌습니다. 좋아진 항목은 유지하고, 같은 방식으로 다른 카테고리에도 작게 적용해보세요.`;
+}
+
 function buildTips({
   aMetrics,
   bMetrics,
@@ -311,7 +364,7 @@ function buildTips({
     return [
       {
         title: "비교할 데이터가 부족합니다",
-        body: "변화분석에서 기간 A와 기간 B가 모두 데이터가 있는 구간으로 잡혀야 꿀팁이 계산됩니다.",
+        body: "변화분석에서 기준기간과 비교기간을 모두 데이터가 있는 구간으로 선택해야 꿀팁이 계산됩니다.",
         tone: "neutral",
       },
     ];
@@ -331,7 +384,7 @@ function buildTips({
   if (bMetrics.cost > 0 && aMetrics.cost > 0 && Math.abs(roasDelta) >= 0.25) {
     tips.push({
       title: roasDelta > 0 ? "ROAS가 개선됐습니다" : "ROAS 하락을 먼저 확인하세요",
-      body: `${fmtRoas(aMetrics.roas)}에서 ${fmtRoas(bMetrics.roas)}로 움직였습니다. 광고비와 매출 중 어느 쪽 변화가 더 컸는지 같이 확인하면 원인이 빨리 좁혀집니다.`,
+      body: roasTipBody({ aMetrics, bMetrics, roasDelta, revenueDelta, costDelta }),
       tone: roasDelta > 0 ? "good" : "danger",
     });
   }
@@ -393,7 +446,7 @@ function buildTips({
   if (tips.length === 0) {
     tips.push({
       title: "큰 위험 신호는 적습니다",
-      body: "기간 B가 기간 A와 비슷한 흐름입니다. 이럴 때는 급한 수정보다 검색어, 소재, 랜딩별 작은 차이를 보는 편이 좋습니다.",
+      body: "비교기간이 기준기간과 비슷한 흐름입니다. 이럴 때는 급한 수정보다 검색어, 소재, 랜딩별 작은 차이를 보는 편이 좋습니다.",
       tone: "neutral",
     });
   }
@@ -594,23 +647,28 @@ export function MarketingGlossaryClient({ data }: { data: DashboardData }) {
             <div className="border-b border-slate-200 pb-3">
               <h2 className="text-lg font-semibold text-slate-900">기간별 꿀팁</h2>
               <p className="mt-1 text-sm text-slate-500">
-                기준: 기간 B vs 기간 A
+                기준기간 대비 비교기간의 변화를 분석합니다.
               </p>
             </div>
 
             <div className="grid gap-2 border-b border-slate-200 py-4 text-sm">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-slate-500">기간 A</span>
+                <span className="text-slate-500">기준기간</span>
                 <strong className="text-right font-semibold text-slate-800">
                   {rangeLabel(rangeA.start, rangeA.end)}
                 </strong>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-slate-500">기간 B</span>
+                <span className="text-slate-500">비교기간</span>
                 <strong className="text-right font-semibold text-slate-800">
                   {rangeLabel(rangeB.start, rangeB.end)}
                 </strong>
               </div>
+            </div>
+
+            <div className="border-b border-slate-200 pb-4 text-xs leading-5 text-slate-500">
+              선택한 기간의 ROAS, 매출, 전환수, 광고비, CTR/CVR, 집행률을 함께 보고
+              위험 신호와 개선 포인트를 최대 5개까지 자동으로 추립니다.
             </div>
 
             <div className="divide-y divide-slate-100 border-b border-slate-200 py-2">

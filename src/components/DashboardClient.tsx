@@ -262,9 +262,10 @@ function Delta({
   const delta = (curr - prev) / prev;
   const up = curr >= prev;
   const good = up === goodWhenUp;
+  const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
   return (
-    <span className={`text-[11px] ${good ? "text-[#03C75A]" : "text-red-500"}`}>
-      {up ? "▲" : "▼"} {Math.abs(delta * 100).toFixed(1)}%
+    <span className={`text-[11px] font-semibold ${good ? "text-[#03C75A]" : "text-red-500"}`}>
+      {sign}{Math.abs(delta * 100).toFixed(1)}%
     </span>
   );
 }
@@ -361,11 +362,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const analysisByCategoryA = byCatOf(analysisARows);
   const analysisByCategoryB = byCatOf(analysisBRows);
   const analysisIssues = buildIssues(analysisBRows, analysisARows);
-  const analysisBaseMetric = (
+  const analysisComparisonMetric = (
     slug: string,
     pick: (m: DerivedMetrics) => number,
   ) => {
-    const m = analysisByCategoryA.find((c) => c.slug === slug)?.metrics;
+    const m = analysisByCategoryB.find((c) => c.slug === slug)?.metrics;
     return m ? pick(m) : null;
   };
   const analysisHasRows = analysisARows.length > 0 || analysisBRows.length > 0;
@@ -389,12 +390,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <div className="mb-5">
               <h2 className="text-lg font-semibold text-slate-800">변화 분석</h2>
               <p className="mt-1 text-sm text-slate-400">
-                원하는 두 기간을 선택해 카테고리별 변화를 비교합니다.
+                표의 값은 위에서부터 비교기간, 기준기간, 기준기간 대비 변화율 순서로 보여줍니다.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
               <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-600">기간 A</div>
+                <div className="text-sm font-medium text-slate-600">기준기간</div>
                 <RangeCalendar
                   start={analysisA.start}
                   end={analysisA.end}
@@ -411,7 +412,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
               </div>
               <div className="pb-8 text-center text-xs font-semibold text-slate-400">VS</div>
               <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-600">기간 B</div>
+                <div className="text-sm font-medium text-slate-600">비교기간</div>
                 <RangeCalendar
                   start={analysisB.start}
                   end={analysisB.end}
@@ -433,12 +434,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             <h3 className="mb-3 font-semibold text-slate-800">
               비교 결과{" "}
               <span className="text-sm font-normal text-slate-400">
-                기간 B vs 기간 A
+                비교기간 값 / 기준기간 값 / 기준기간 대비 변화율
               </span>
             </h3>
             {!analysisHasRows ? (
               <p className="py-6 text-center text-sm text-slate-400">
-                선택한 기간에 비교할 데이터가 없습니다.
+                기준기간 또는 비교기간에 표시할 데이터가 없습니다.
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -457,15 +458,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     <ChangeRow
                       label="전체"
                       bold
-                      metrics={analysisBMetrics}
-                      baseMetrics={analysisAMetrics}
+                      metrics={analysisAMetrics}
+                      comparisonMetrics={analysisBMetrics}
                     />
-                    {analysisByCategoryB.map((c) => (
+                    {analysisByCategoryA.map((c) => (
                       <ChangeRow
                         key={c.slug}
                         label={c.label}
                         metrics={c.metrics}
-                        basePick={(pick) => analysisBaseMetric(c.slug, pick)}
+                        comparisonPick={(pick) => analysisComparisonMetric(c.slug, pick)}
                       />
                     ))}
                   </tbody>
@@ -475,17 +476,17 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           </section>
 
           <section className={CARD_CLASS}>
-            <h3 className="text-lg font-semibold text-slate-800">주요 변화 이슈 TOP5</h3>
+            <h3 className="text-lg font-semibold text-slate-800">비교기간 변화 이슈 TOP5</h3>
             <p className="mb-4 text-sm text-slate-400">
-              {rangeText(analysisB.start, analysisB.end)} vs {rangeText(analysisA.start, analysisA.end)} · 변화가 큰 순
+              기준기간 {rangeText(analysisA.start, analysisA.end)} 대비 비교기간 {rangeText(analysisB.start, analysisB.end)} · 변화가 큰 순
             </p>
             {analysisARows.length === 0 || analysisBRows.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">
-                두 기간 모두에 데이터가 있어야 주요 변화 이슈를 계산할 수 있습니다.
+                기준기간과 비교기간 모두에 데이터가 있어야 변화 이슈를 계산할 수 있습니다.
               </p>
             ) : analysisIssues.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">
-                선택한 기간 사이에 큰 변화가 없습니다.
+                기준기간 대비 비교기간의 큰 변화가 없습니다.
               </p>
             ) : (
               <ul className="grid gap-2 md:grid-cols-2">
@@ -1184,14 +1185,14 @@ function RangeCalendar({
 function ChangeRow({
   label,
   metrics,
-  baseMetrics,
-  basePick,
+  comparisonMetrics,
+  comparisonPick,
   bold,
 }: {
   label: string;
   metrics: DerivedMetrics;
-  baseMetrics?: DerivedMetrics;
-  basePick?: (pick: (m: DerivedMetrics) => number) => number | null;
+  comparisonMetrics?: DerivedMetrics;
+  comparisonPick?: (pick: (m: DerivedMetrics) => number) => number | null;
   bold?: boolean;
 }) {
   return (
@@ -1200,18 +1201,35 @@ function ChangeRow({
         {label}
       </td>
       {CHANGE_COLS.map((col) => {
-        const cur = col.pick(metrics);
-        const prev = baseMetrics
-          ? col.pick(baseMetrics)
-          : basePick
-            ? basePick(col.pick)
+        const baseValue = col.pick(metrics);
+        const comparisonValue = comparisonMetrics
+          ? col.pick(comparisonMetrics)
+          : comparisonPick
+            ? comparisonPick(col.pick)
             : null;
         return (
-          <td key={col.label} className="px-2 py-2 text-right">
-            <div className="tabular-nums font-medium text-slate-800">
-              {col.fmt(cur)}
+          <td key={col.label} className="px-2 py-2 text-right align-top">
+            <div className="space-y-0.5">
+              {comparisonValue == null ? (
+                <>
+                  <div className="tabular-nums font-medium text-slate-800">-</div>
+                  <div className="tabular-nums text-[12px] font-medium text-slate-500">
+                    {col.fmt(baseValue)}
+                  </div>
+                  <span className="text-[11px] text-slate-300">-</span>
+                </>
+              ) : (
+                <>
+                  <div className="tabular-nums font-medium text-slate-800">
+                    {col.fmt(comparisonValue)}
+                  </div>
+                  <div className="tabular-nums text-[12px] font-medium text-slate-500">
+                    {col.fmt(baseValue)}
+                  </div>
+                  <Delta curr={comparisonValue} prev={baseValue} goodWhenUp={col.goodUp} />
+                </>
+              )}
             </div>
-            <Delta curr={cur} prev={prev} goodWhenUp={col.goodUp} />
           </td>
         );
       })}
