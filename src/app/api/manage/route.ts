@@ -25,13 +25,23 @@ interface Row {
 export async function GET() {
   if (!guard()) return NextResponse.json({ periods: [] });
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("ad_metrics")
-    .select(
-      "period_start,period_end,report_date,impressions,clicks,cost,conversions,conversion_value",
-    );
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const pageSize = 1000;
+  const rows: Row[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("ad_metrics")
+      .select(
+        "period_start,period_end,report_date,impressions,clicks,cost,conversions,conversion_value",
+      )
+      .order("period_end", { ascending: false })
+      .range(from, to);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    rows.push(...((data ?? []) as Row[]));
+    if ((data ?? []).length < pageSize) break;
   }
 
   const map = new Map<
@@ -47,7 +57,7 @@ export async function GET() {
       conversionValue: number;
     }
   >();
-  for (const r of (data ?? []) as Row[]) {
+  for (const r of rows) {
     const start = r.period_start ?? r.report_date;
     const end = r.period_end ?? r.report_date;
     const key = `${start}~${end}`;

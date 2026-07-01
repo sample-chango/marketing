@@ -63,12 +63,26 @@ function normalize(r: RawRow): MetricRow {
 async function fetchRows(): Promise<MetricRow[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = await createClient();
-  const { data, error } = await supabase.from("ad_metrics").select(SELECT_COLS);
-  if (error) {
-    console.error("[data] fetchRows error:", error.message);
-    return [];
+
+  const pageSize = 1000;
+  const rows: RawRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("ad_metrics")
+      .select(SELECT_COLS)
+      .order("period_end", { ascending: true })
+      .range(from, to);
+    if (error) {
+      console.error("[data] fetchRows error:", error.message);
+      return [];
+    }
+
+    rows.push(...((data ?? []) as unknown as RawRow[]));
+    if ((data ?? []).length < pageSize) break;
   }
-  return ((data ?? []) as unknown as RawRow[]).map(normalize);
+
+  return rows.map(normalize);
 }
 
 const DEFAULT_DAILY_BUDGET = 40000;
