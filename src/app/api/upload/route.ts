@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseNaverReport, dateFromFileName } from "@/lib/parse/naver-report";
+import { periodFromFileName } from "@/lib/date-filename";
+import { parseNaverReport } from "@/lib/parse/naver-report";
 
 export const runtime = "nodejs";
 
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 기간 결정: 폼의 기간(start~end) > 단일 일자(reportDate) > 파일명 날짜
+  // 기간 결정: 폼의 기간(start~end) > 단일 일자(reportDate) > 파일명 기간/날짜
   const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
   const psRaw = String(form.get("periodStart") ?? "");
   const peRaw = String(form.get("periodEnd") ?? "");
@@ -56,13 +57,14 @@ export async function POST(req: Request) {
   if (isDate(psRaw) && isDate(peRaw)) {
     periodStart = psRaw <= peRaw ? psRaw : peRaw;
     periodEnd = psRaw <= peRaw ? peRaw : psRaw;
+  } else if (isDate(fallbackDateRaw)) {
+    periodStart = fallbackDateRaw;
+    periodEnd = fallbackDateRaw;
   } else {
-    const single = isDate(fallbackDateRaw)
-      ? fallbackDateRaw
-      : dateFromFileName(file.name);
-    if (single) {
-      periodStart = single;
-      periodEnd = single;
+    const filePeriod = periodFromFileName(file.name);
+    if (filePeriod) {
+      periodStart = filePeriod.start;
+      periodEnd = filePeriod.end;
     }
   }
 
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "기간(또는 일자)을 확인할 수 없습니다. 파일명에 날짜가 없으면 업로드 폼에서 기간/일자를 지정하세요.",
+          "기간(또는 일자)을 확인할 수 없습니다. 파일명에 0601 또는 0601~0603처럼 날짜나 기간을 넣어주세요.",
         detectedColumns: parsed.detectedColumns,
       },
       { status: 422 },

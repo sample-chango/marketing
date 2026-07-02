@@ -147,16 +147,6 @@ function cleanCreativeName(value: string | null): string | null {
   return v;
 }
 
-/** 파일명 등에서 YYYYMMDD 추출 → ISO 날짜 */
-export function dateFromFileName(name: string): string | null {
-  const m = name.match(/(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})/);
-  if (!m) return null;
-  const [, y, mo, d] = m;
-  const mm = Number(mo);
-  const dd = Number(d);
-  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
-  return `${y}-${mo}-${d}`;
-}
 
 /** 헤더 배열에서 필드→인덱스 맵 생성 */
 function buildHeaderMap(headers: string[]) {

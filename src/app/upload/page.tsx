@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DataManagePanel } from "@/components/DataManagePanel";
 import { TopBar } from "@/components/TopBar";
 import { categoryLabel } from "@/lib/categories";
+import { periodFromFileName } from "@/lib/date-filename";
 
 interface UploadResult {
   ok?: boolean;
@@ -18,47 +19,43 @@ interface UploadResult {
   detectedColumns?: Record<string, string>;
 }
 
-/** ISO 날짜에 n일 더하기 (타임존 안전) */
-function addDays(iso: string, n: number): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + n);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
-    dt.getDate(),
-  ).padStart(2, "0")}`;
-}
-const WD_KOR = ["일", "월", "화", "수", "목", "금", "토"];
-
 export default function UploadPage() {
-  const [mode, setMode] = useState<"single" | "range" | "weekday">("single");
-  const [reportDate, setReportDate] = useState("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
-  const [weekStart, setWeekStart] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const weekEnd = weekStart ? addDays(weekStart, 6) : "";
+  const uploadYear = new Date().getFullYear();
+  const detectedFilePeriod = file ? periodFromFileName(file.name, uploadYear) : null;
+  const detectedPeriodLabel = detectedFilePeriod
+    ? detectedFilePeriod.start === detectedFilePeriod.end
+      ? detectedFilePeriod.start
+      : `${detectedFilePeriod.start} ~ ${detectedFilePeriod.end}`
+    : "";
+  const canUpload = !!file && !!detectedFilePeriod && !busy;
+
+  function selectFile(nextFile: File | null) {
+    setFile(nextFile);
+    setResult(null);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setIsDragging(false);
+    selectFile(e.dataTransfer.files?.[0] ?? null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) return;
+    if (!file || !detectedFilePeriod) return;
     setBusy(true);
     setResult(null);
 
     const fd = new FormData();
     fd.append("file", file);
-    if (mode === "single") {
-      if (reportDate) fd.append("reportDate", reportDate);
-    } else if (mode === "range") {
-      fd.append("periodStart", periodStart);
-      fd.append("periodEnd", periodEnd);
-    } else {
-      // 요일별: 선택한 주 시작일 ~ +6일(7일)
-      fd.append("periodStart", weekStart);
-      fd.append("periodEnd", weekEnd);
-    }
+    fd.append("periodStart", detectedFilePeriod.start);
+    fd.append("periodEnd", detectedFilePeriod.end);
 
     try {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
@@ -70,280 +67,193 @@ export default function UploadPage() {
     }
   }
 
-  const rangeInvalid =
-    mode === "range" && (!periodStart || !periodEnd || periodStart > periodEnd);
-  const weekdayInvalid = mode === "weekday" && !weekStart;
-
   return (
     <>
       <TopBar title="데이터 업로드" maxWidth="max-w-5xl" />
       <div className="mx-auto max-w-5xl p-4 md:p-8">
         <p className="mb-6 max-w-2xl text-sm text-slate-500">
-          네이버 소재 목록 보고서를 올리면 카테고리가 자동 분류됩니다.
+          네이버 소재 목록 보고서를 올리면 파일명 기간을 기준으로 저장하고,
+          카테고리를 자동 분류합니다.
         </p>
 
-      <form
-        onSubmit={handleSubmit}
-        className="max-w-2xl space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            보고서 파일 (.xlsx / .csv)
-          </label>
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700"
-          />
-          <p className="mt-1 text-xs text-slate-400">
-            전체 데이터를 한 파일로 올리면 행마다 카테고리를 자동 분류합니다.
-          </p>
-        </div>
-
-        {/* 기간 모드 선택 */}
-        <div>
-          <div className="mb-2 inline-flex rounded-lg bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setMode("single")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                mode === "single"
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500"
+        <form
+          onSubmit={handleSubmit}
+          className="max-w-2xl space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div>
+            <div className="mb-1 text-sm font-medium text-slate-700">
+              보고서 파일 (.xlsx / .csv)
+            </div>
+            <label
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+              }}
+              onDrop={handleDrop}
+              className={`flex min-h-[148px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-5 text-center transition ${
+                isDragging
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-slate-300 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50/60"
               }`}
             >
-              단일 일자
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("range")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                mode === "range"
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500"
-              }`}
-            >
-              기간
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("weekday")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                mode === "weekday"
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500"
-              }`}
-            >
-              요일별(주간)
-            </button>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
+                className="sr-only"
+              />
+              <span className="text-sm font-semibold text-slate-800">
+                {file ? file.name : "파일을 끌어오거나 클릭해서 선택"}
+              </span>
+              <span className="mt-1 text-xs text-slate-400">
+                파일명 예시: 0601.xlsx, 0601~0603.xlsx, 20260601~20260603.xlsx
+              </span>
+              {detectedFilePeriod && (
+                <span className="mt-3 rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-700 shadow-sm">
+                  인식된 기간: {detectedPeriodLabel}
+                </span>
+              )}
+              {file && !detectedFilePeriod && (
+                <span className="mt-3 rounded-full bg-white px-3 py-1 text-xs font-medium text-red-600 shadow-sm">
+                  파일명에서 날짜 또는 기간을 인식할 수 없습니다.
+                </span>
+              )}
+            </label>
           </div>
 
-          {mode === "weekday" ? (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                주 시작일{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  (이 날짜부터 7일로 매핑)
-                </span>
-              </label>
-              <input
-                type="date"
-                value={weekStart}
-                onChange={(e) => setWeekStart(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                상품마다 월~일 7개 행이 있는 <b>요일 분석 보고서</b>를 올리면, 각
-                요일 값이 아래 날짜에 맞춰 저장됩니다.
-              </p>
-              {weekStart && (
-                <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 sm:grid-cols-4">
-                  {Array.from({ length: 7 }, (_, i) => {
-                    const d = addDays(weekStart, i);
-                    const wd = WD_KOR[new Date(d + "T00:00:00").getDay()];
-                    return (
-                      <li key={d} className="tabular-nums">
-                        <span className="font-medium text-slate-800">{wd}</span>{" "}
-                        {d.slice(5).replace("-", ".")}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          ) : mode === "single" ? (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                기준일자{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  (비우면 파일명의 날짜 자동 인식)
-                </span>
-              </label>
-              <input
-                type="date"
-                value={reportDate}
-                onChange={(e) => setReportDate(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-            </div>
-          ) : (
-            <div className="flex items-end gap-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  시작일
-                </label>
-                <input
-                  type="date"
-                  value={periodStart}
-                  onChange={(e) => setPeriodStart(e.target.value)}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <span className="pb-2.5 text-slate-400">~</span>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  종료일
-                </label>
-                <input
-                  type="date"
-                  value={periodEnd}
-                  onChange={(e) => setPeriodEnd(e.target.value)}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
+          <button
+            type="submit"
+            disabled={!canUpload}
+            className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {busy ? "업로드 중..." : "업로드"}
+          </button>
+          {file && !detectedFilePeriod && (
+            <p className="text-xs text-red-500">
+              파일명에 0601 또는 0601~0603처럼 날짜나 기간을 넣어주세요.
+            </p>
           )}
-        </div>
+        </form>
 
-        <button
-          type="submit"
-          disabled={!file || busy || rangeInvalid || weekdayInvalid}
-          className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          {busy ? "업로드 중…" : "업로드"}
-        </button>
-        {rangeInvalid && (
-          <p className="text-xs text-red-500">
-            시작일과 종료일을 올바르게 입력하세요.
-          </p>
-        )}
-        {weekdayInvalid && (
-          <p className="text-xs text-red-500">주 시작일을 선택하세요.</p>
-        )}
-      </form>
-
-      {result && (
-        <div
-          className={`mt-5 max-w-2xl rounded-2xl border p-5 text-sm ${
-            result.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
-        >
-          {result.ok ? (
-            <>
-              <div className="text-base font-semibold">
-                ✅ {result.inserted}건 저장 완료
-              </div>
-              {result.period && (
-                <div className="mt-1 text-xs text-emerald-700">
-                  기간: {result.period.start}
-                  {result.period.start !== result.period.end &&
-                    ` ~ ${result.period.end}`}
+        {result && (
+          <div
+            className={`mt-5 max-w-2xl rounded-2xl border p-5 text-sm ${
+              result.ok
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            {result.ok ? (
+              <>
+                <div className="text-base font-semibold">
+                  ✅ {result.inserted}건 저장 완료
                 </div>
-              )}
-
-              {result.categoryCounts && (
-                <div className="mt-3">
-                  <div className="mb-1 text-xs font-semibold text-emerald-800">
-                    카테고리 분류
+                {result.period && (
+                  <div className="mt-1 text-xs text-emerald-700">
+                    기간: {result.period.start}
+                    {result.period.start !== result.period.end &&
+                      ` ~ ${result.period.end}`}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(result.categoryCounts).map(([slug, n]) => (
-                      <span
-                        key={slug}
-                        className="rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-700 shadow-sm"
-                      >
-                        {categoryLabel(slug)} {n}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
 
-              {result.unclassifiedCount ? (
-                <details className="mt-3 text-xs">
-                  <summary className="cursor-pointer font-medium text-amber-700">
-                    ⚠️ 미분류 {result.unclassifiedCount}건 (저장 안 됨)
-                  </summary>
-                  <ul className="mt-1 list-inside list-disc text-slate-600">
-                    {result.unclassified?.map((name, i) => (
+                {result.categoryCounts && (
+                  <div className="mt-3">
+                    <div className="mb-1 text-xs font-semibold text-emerald-800">
+                      카테고리 분류
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(result.categoryCounts).map(([slug, n]) => (
+                        <span
+                          key={slug}
+                          className="rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-700 shadow-sm"
+                        >
+                          {categoryLabel(slug)} {n}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {result.unclassifiedCount ? (
+                  <details className="mt-3 text-xs">
+                    <summary className="cursor-pointer font-medium text-amber-700">
+                      ⚠️ 미분류 {result.unclassifiedCount}건 (저장 안 됨)
+                    </summary>
+                    <ul className="mt-1 list-inside list-disc text-slate-600">
+                      {result.unclassified?.map((name, i) => (
+                        <li key={i} className="truncate">
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+
+                <Link
+                  href="/"
+                  className="mt-4 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                >
+                  대시보드에서 보기 →
+                </Link>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold">⚠️ {result.error}</div>
+                {result.unclassified && result.unclassified.length > 0 && (
+                  <ul className="mt-2 list-inside list-disc text-xs">
+                    {result.unclassified.map((name, i) => (
                       <li key={i} className="truncate">
                         {name}
                       </li>
                     ))}
                   </ul>
-                </details>
-              ) : null}
+                )}
+              </>
+            )}
 
-              <Link
-                href="/"
-                className="mt-4 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
-              >
-                대시보드에서 보기 →
-              </Link>
-            </>
-          ) : (
-            <>
-              <div className="font-semibold">⚠️ {result.error}</div>
-              {result.unclassified && result.unclassified.length > 0 && (
-                <ul className="mt-2 list-inside list-disc text-xs">
-                  {result.unclassified.map((name, i) => (
-                    <li key={i} className="truncate">
-                      {name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-
-          {result.detectedColumns && (
-            <details className="mt-2 text-xs">
-              <summary className="cursor-pointer text-slate-500">
-                인식된 컬럼 보기
-              </summary>
-              <pre className="mt-1 overflow-x-auto rounded bg-white/60 p-2">
-                {JSON.stringify(result.detectedColumns, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
-
-      <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setManageOpen((value) => !value)}
-          className="flex w-full items-center justify-between text-left"
-        >
-          <div>
-            <h2 className="text-base font-semibold text-slate-800">데이터 관리</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              업로드한 데이터를 기간별로 수정하거나 삭제합니다.
-            </p>
-          </div>
-          <span className="text-[11px] font-medium text-emerald-600">
-            {manageOpen ? "닫기 ▲" : "열기 ▼"}
-          </span>
-        </button>
-        {manageOpen && (
-          <div className="mt-5">
-            <DataManagePanel />
+            {result.detectedColumns && (
+              <details className="mt-2 text-xs">
+                <summary className="cursor-pointer text-slate-500">
+                  인식된 컬럼 보기
+                </summary>
+                <pre className="mt-1 overflow-x-auto rounded bg-white/60 p-2">
+                  {JSON.stringify(result.detectedColumns, null, 2)}
+                </pre>
+              </details>
+            )}
           </div>
         )}
-      </section>
+
+        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setManageOpen((value) => !value)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">데이터 관리</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                업로드한 데이터를 기간별로 수정하거나 삭제합니다.
+              </p>
+            </div>
+            <span className="text-[11px] font-medium text-emerald-600">
+              {manageOpen ? "닫기 ▲" : "열기 ▼"}
+            </span>
+          </button>
+          {manageOpen && (
+            <div className="mt-5">
+              <DataManagePanel />
+            </div>
+          )}
+        </section>
       </div>
     </>
   );

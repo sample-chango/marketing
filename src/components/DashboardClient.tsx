@@ -33,6 +33,11 @@ type MetricKey =
 
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
 const mmdd = (iso: string) => iso.slice(5).replace("-", ".");
+const fmtAvgCount = (n: number) =>
+  n.toLocaleString("ko-KR", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 1,
+  });
 const rowDate = (r: MetricRow) => r.period_end;
 const BRAND = {
   green: "#03C75A",
@@ -663,6 +668,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   });
 
   const days = rs && re ? daysInclusive(rs, re) : 0;
+  const showPeriodAverage = days > 1;
   const effBudget = data.dailyBudget * days;
   const execRate = effBudget > 0 ? o.cost / effBudget : null;
   const periodText = rs
@@ -754,6 +760,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <BreakdownCard
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
+          average={showPeriodAverage ? `일 평균 ${fmtAvgCount(o.conversions / days)}개` : undefined}
           valueFormatter={(value) => `${fmtInt(value)}개`}
           showPercent={breakdownShowPercent}
           onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
@@ -762,6 +769,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <BreakdownCard
           title="총 매출액"
           value={fmtWon(o.conversionValue)}
+          average={showPeriodAverage ? `일 평균 ${fmtWon(o.conversionValue / days)}` : undefined}
           valueFormatter={fmtWon}
           showPercent={breakdownShowPercent}
           onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
@@ -770,6 +778,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <BreakdownCard
           title="총 광고비"
           value={fmtWon(o.cost)}
+          average={showPeriodAverage ? `일 평균 ${fmtWon(o.cost / days)}` : undefined}
           valueFormatter={fmtWon}
           showPercent={breakdownShowPercent}
           onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
@@ -1312,6 +1321,7 @@ function BreakdownCard({
   title,
   value,
   wow,
+  average,
   action,
   slices,
   valueFormatter,
@@ -1322,6 +1332,7 @@ function BreakdownCard({
   title: string;
   value: string;
   wow?: React.ReactNode;
+  average?: string;
   action?: React.ReactNode;
   slices: { label: string; value: number; color: string }[];
   valueFormatter?: (value: number) => string;
@@ -1335,6 +1346,9 @@ function BreakdownCard({
         <div>
           <div className="text-sm font-medium text-slate-500">{title}</div>
           <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
+          {average && (
+            <div className="mt-1 text-xs font-medium text-slate-400">{average}</div>
+          )}
         </div>
         {(wow || action) && (
           <div className="flex shrink-0 flex-col items-end gap-1">
