@@ -120,29 +120,89 @@ const byCatOf = (rs: MetricRow[]) =>
 
 /* ---------- 이슈(주요 변화) 분석 ---------- */
 
-interface Issue {
-  tone: "up" | "down" | "warn";
-  emoji: string;
+interface ComparisonExplanation {
+  tone: "good" | "warn" | "danger" | "neutral";
   title: string;
-  detail: string;
-  score: number;
+  body: string;
+  details: string[];
+  action: string;
 }
 
-const ISSUE_METRICS: {
-  label: string;
-  pick: (m: DerivedMetrics) => number;
-  fmt: (n: number) => string;
-  goodUp: boolean;
-  minBase: number;
-  warn?: boolean;
-}[] = [
-  { label: "노출수", pick: (m) => m.impressions, fmt: fmtInt, goodUp: true, minBase: 300 },
-  { label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt, goodUp: true, minBase: 10 },
-  { label: "전환", pick: (m) => m.conversions, fmt: fmtInt, goodUp: true, minBase: 3 },
-  { label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, goodUp: true, minBase: 10000 },
-  { label: "광고비", pick: (m) => m.cost, fmt: fmtWon, goodUp: false, minBase: 5000, warn: true },
-  { label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, goodUp: true, minBase: 0.5, warn: true },
+const EXPLANATION_TONE_ORDER: ComparisonExplanation["tone"][] = [
+  "good",
+  "danger",
+  "warn",
+  "neutral",
 ];
+
+const EXPLANATION_TONE_META: Record<
+  ComparisonExplanation["tone"],
+  {
+    label: string;
+    badge: string;
+    cardClass: string;
+    labelClass: string;
+    dotClass: string;
+  }
+> = {
+  good: {
+    label: "힘 보탤 제품",
+    badge: "광고비 이동 후보",
+    cardClass: "border-emerald-200 bg-emerald-50",
+    labelClass: "text-emerald-700",
+    dotClass: "bg-emerald-500",
+  },
+  danger: {
+    label: "비용 줄일 제품",
+    badge: "광고비 회수 후보",
+    cardClass: "border-rose-200 bg-rose-50",
+    labelClass: "text-rose-700",
+    dotClass: "bg-rose-500",
+  },
+  warn: {
+    label: "점검 조치",
+    badge: "확인 후 조정",
+    cardClass: "border-amber-200 bg-amber-50",
+    labelClass: "text-amber-700",
+    dotClass: "bg-amber-500",
+  },
+  neutral: {
+    label: "필요 조치 없음",
+    badge: "유지",
+    cardClass: "border-slate-200 bg-slate-50",
+    labelClass: "text-slate-500",
+    dotClass: "bg-slate-400",
+  },
+};
+
+const ACTION_TITLE_SUFFIXES = [
+  "회복 테스트 후보",
+  "회복/보호 후보",
+  "광고비 재배분 후보",
+  "힘 보탤 후보",
+  "신규 집행 비용 점검",
+  "매출 하락 우선 점검",
+  "광고비 효율 점검",
+  "전환 회복 필요",
+  "ROAS 하락 점검",
+  "비용 줄일 후보",
+];
+
+function actionDisplayParts(item: ComparisonExplanation) {
+  for (const suffix of ACTION_TITLE_SUFFIXES) {
+    if (item.title.endsWith(` ${suffix}`)) {
+      return {
+        target: item.title.slice(0, -suffix.length).trim(),
+        actionType: suffix,
+      };
+    }
+  }
+
+  return {
+    target: item.title,
+    actionType: item.tone === "good" ? "힘 보탤 후보" : item.tone === "danger" ? "우선 조치" : "점검 조치",
+  };
+}
 
 const nameOf = (r: MetricRow) => r.keyword ?? r.ad_group ?? r.campaign ?? "-";
 const truncName = (s: string, n = 22) => (s.length > n ? s.slice(0, n) + "…" : s);
@@ -156,90 +216,685 @@ function groupByName(rows: MetricRow[]) {
   return m;
 }
 
-/** 현재 vs 전날 비교에서 변화가 큰 이슈를 추출 */
-function buildIssues(cur: MetricRow[], base: MetricRow[]): Issue[] {
-  if (cur.length === 0 || base.length === 0) return [];
-  const issues: Issue[] = [];
-  const curG = groupByName(cur);
-  const baseG = groupByName(base);
+const ratioDelta = (current: number, base: number, minBase = 0) =>
+  base > minBase ? (current - base) / base : null;
 
-  // (1) 제품 매출 순위 변동
-  const rankOf = (g: Map<string, MetricRow[]>) => {
-    const sorted = [...g.entries()]
-      .map(([n, rs]) => ({ n, v: agg(rs).conversionValue }))
-      .filter((x) => x.v > 0)
-      .sort((a, b) => b.v - a.v);
-    return new Map(sorted.map((x, i) => [x.n, i + 1]));
+const fmtDelta = (delta: number | null) =>
+  delta == null
+    ? "변화율 계산 불가"
+    : `${delta >= 0 ? "+" : "-"}${Math.abs(delta * 100).toFixed(1)}%`;
+
+const fmtVsAverage = (value: number, average: number, fmt: (n: number) => string) =>
+  average > 0
+    ? value >= average
+      ? `전체 평균 ${fmt(average)}보다 높음`
+      : `전체 평균 ${fmt(average)}보다 낮음`
+    : "전체 평균 비교 불가";
+
+const metricVsAverage = (
+  label: string,
+  value: number,
+  average: number,
+  fmt: (n: number) => string,
+) =>
+  average > 0
+    ? `${label} = ${fmt(value)} / 전체 평균 ${fmt(average)} / 평균보다 ${value >= average ? "높음" : "낮음"}`
+    : `${label} = ${fmt(value)} / 전체 평균 비교 불가`;
+
+
+function buildComparisonExplanations(
+  base: DerivedMetrics,
+  current: DerivedMetrics,
+  baseByCategory: ReturnType<typeof byCatOf>,
+  currentByCategory: ReturnType<typeof byCatOf>,
+  baseRows: MetricRow[],
+  currentRows: MetricRow[],
+  allRows: MetricRow[],
+): ComparisonExplanation[] {
+  const hasBase = base.cost > 0 || base.conversions > 0 || base.conversionValue > 0;
+  const hasCurrent = current.cost > 0 || current.conversions > 0 || current.conversionValue > 0;
+  if (!hasBase || !hasCurrent) {
+    return [
+      {
+        tone: "neutral",
+        title: "비교할 데이터가 부족합니다",
+        body: "기준기간과 비교기간 모두에 광고비, 전환, 매출 데이터가 있어야 제품별 변화 원인과 조치 방향을 설명할 수 있습니다.",
+        details: [
+          "한쪽 기간에 데이터가 없으면 어떤 제품이 좋아졌거나 나빠졌는지 기준점을 잡기 어렵습니다.",
+          "두 기간 모두 같은 방식으로 업로드되어 있는지 먼저 확인하세요.",
+        ],
+        action: "기준기간과 비교기간에 같은 형식의 보고서를 업로드한 뒤 다시 비교하세요.",
+      },
+    ];
+  }
+
+  type ScoredExplanation = { score: number; item: ComparisonExplanation };
+
+
+  const categoryName = (slug: string) =>
+    CATEGORIES.find((category) => category.slug === slug)?.label ?? slug;
+
+  const metricLine = (prev: DerivedMetrics, cur: DerivedMetrics) => {
+    const rev = ratioDelta(cur.conversionValue, prev.conversionValue);
+    const conv = ratioDelta(cur.conversions, prev.conversions);
+    const cost = ratioDelta(cur.cost, prev.cost);
+    return `매출 ${fmtWon(prev.conversionValue)} → ${fmtWon(cur.conversionValue)} (${fmtDelta(rev)}), 전환 ${fmtInt(prev.conversions)}건 → ${fmtInt(cur.conversions)}건 (${fmtDelta(conv)}), 광고비 ${fmtWon(prev.cost)} → ${fmtWon(cur.cost)} (${fmtDelta(cost)}), ROAS ${fmtRoas(prev.roas)} → ${fmtRoas(cur.roas)}`;
   };
-  const curRank = rankOf(curG);
-  const baseRank = rankOf(baseG);
-  for (const [n, cr] of curRank) {
-    const br = baseRank.get(n);
-    if (br == null) continue;
-    const change = br - cr; // +면 순위 상승
-    if (Math.abs(change) >= 2) {
-      issues.push({
-        tone: change > 0 ? "up" : "down",
-        emoji: change > 0 ? "🏆" : "🔻",
-        title: `${truncName(n)} 매출 순위 ${change > 0 ? "상승" : "하락"}`,
-        detail: `${br}위 → ${cr}위 (${change > 0 ? "▲" : "▼"}${Math.abs(change)})`,
-        score: Math.abs(change) * 1.5,
-      });
-    }
-  }
 
-  // (2) 카테고리 지표 급변
-  for (const c of CATEGORIES) {
-    const cm = agg(cur.filter((r) => r.category === c.slug));
-    const bm = agg(base.filter((r) => r.category === c.slug));
-    for (const col of ISSUE_METRICS) {
-      const cv = col.pick(cm);
-      const bv = col.pick(bm);
-      if (bv < col.minBase) continue;
-      const d = (cv - bv) / bv;
-      if (Math.abs(d) < 0.5) continue;
-      const up = cv >= bv;
-      const good = up === col.goodUp;
-      issues.push({
-        tone: col.warn && !good ? "warn" : up ? "up" : "down",
-        emoji: col.warn && !good ? "⚠️" : up ? "📈" : "📉",
-        title: `${c.label} ${col.label} ${up ? "급증" : "급감"}`,
-        detail: `${col.fmt(bv)} → ${col.fmt(cv)} (${up ? "▲" : "▼"}${Math.round(
-          Math.abs(d) * 100,
-        )}%)`,
-        score: Math.abs(d),
-      });
-    }
-  }
+  const flowLine = (prev: DerivedMetrics, cur: DerivedMetrics) => {
+    const clicks = ratioDelta(cur.clicks, prev.clicks);
+    const cvr = ratioDelta(cur.cvr, prev.cvr);
+    return `클릭 ${fmtInt(prev.clicks)} → ${fmtInt(cur.clicks)} (${fmtDelta(clicks)}), CVR ${fmtPct(prev.cvr)} → ${fmtPct(cur.cvr)} (${fmtDelta(cvr)})`;
+  };
 
-  // (3) 제품 노출 신규 / 급증
-  for (const [n, rs] of curG) {
-    const cImp = agg(rs).impressions;
-    if (cImp < 500) continue;
-    const bRows = baseG.get(n);
-    const bImp = bRows ? agg(bRows).impressions : 0;
-    if (bImp === 0) {
-      issues.push({
-        tone: "up",
-        emoji: "🆕",
-        title: `${truncName(n)} 신규 노출`,
-        detail: `노출 ${fmtInt(cImp)} (전날 없음)`,
-        score: 1.2,
-      });
-    } else if (cImp / bImp >= 3) {
-      issues.push({
-        tone: "up",
-        emoji: "🚀",
-        title: `${truncName(n)} 노출 급증`,
-        detail: `${fmtInt(bImp)} → ${fmtInt(cImp)} (▲${Math.round(
-          (cImp / bImp - 1) * 100,
-        )}%)`,
-        score: cImp / bImp / 3,
-      });
-    }
-  }
+  const signal = (currentValue: number, baseValue: number, threshold = 0.1) => {
+    const delta = ratioDelta(currentValue, baseValue);
+    if (delta == null) return "기준 없음";
+    if (delta >= threshold) return "↑";
+    if (delta <= -threshold) return "↓";
+    return "→";
+  };
 
-  return issues.sort((a, b) => b.score - a.score).slice(0, 5);
+  const signalLine = (prev: DerivedMetrics, cur: DerivedMetrics) =>
+    `지표 조합: 노출 ${signal(cur.impressions, prev.impressions)} / 클릭 ${signal(cur.clicks, prev.clicks)} / CTR ${signal(cur.ctr, prev.ctr)} / CVR ${signal(cur.cvr, prev.cvr)} / ROAS ${signal(cur.roas, prev.roas, 0.15)} / 매출 ${signal(cur.conversionValue, prev.conversionValue)}`;
+
+  const diagnoseProduct = (prev: DerivedMetrics, cur: DerivedMetrics) => {
+    const impressions = ratioDelta(cur.impressions, prev.impressions);
+    const clicks = ratioDelta(cur.clicks, prev.clicks);
+    const ctr = ratioDelta(cur.ctr, prev.ctr);
+    const cvr = ratioDelta(cur.cvr, prev.cvr);
+    const conv = ratioDelta(cur.conversions, prev.conversions);
+    const revenue = ratioDelta(cur.conversionValue, prev.conversionValue);
+    const cost = ratioDelta(cur.cost, prev.cost);
+    const roas = ratioDelta(cur.roas, prev.roas, 0.1);
+
+    if (impressions != null && impressions <= -0.15 && revenue != null && revenue <= -0.15) {
+      const efficiencyHeld = (roas == null || roas >= -0.1) && (cvr == null || cvr >= -0.1);
+      if (efficiencyHeld) {
+        return {
+          cause: "노출이 줄면서 매출도 같이 줄었지만 CVR/ROAS는 크게 무너지지 않았습니다. 상품 효율보다 노출량 부족에 가까운 흐름입니다.",
+          focus: "입찰가(광고비) 소폭 상향, 노출 회복 후 ROAS 유지 여부",
+          action: "입찰가(광고비)를 바로 크게 올리지 말고 10~15%만 올려 테스트하세요. 효율이 유지될 때만 비용 줄일 제품은 낮추고 이 제품은 올리는 방식으로 옮기세요.",
+        };
+      }
+
+      return {
+        cause: "노출도 줄고 매출도 줄었는데 CVR/ROAS도 방어되지 않았습니다. 억지로 노출을 회복시키기보다 광고비를 회수하는 쪽이 안전합니다.",
+        focus: "입찰가(광고비) 하향, 더 효율 좋은 제품으로 이동",
+        action: "이 제품은 입찰가(광고비)를 10~20% 낮추세요. 낮춘 만큼 같은 카테고리에서 ROAS 또는 CVR이 유지되는 제품 쪽을 올리는 것이 좋습니다. 다음에도 노출과 매출이 같이 빠지면 이동 대상에서 제외하세요.",
+      };
+    }
+
+    if (cost != null && cost >= 0.2 && (revenue == null || revenue <= 0.05)) {
+      return {
+        cause: "광고비가 늘었는데 매출이 거의 따라오지 않았습니다. 돈을 더 써도 성과가 붙지 않는 비효율 구간입니다.",
+        focus: "입찰가(광고비) 하향, 전환 없는 검색어 제외, 효율 제품으로 이동",
+        action: "입찰가(광고비)를 10~20% 낮추고, 비용은 발생했지만 구매가 없는 검색어를 제외하세요. 이 제품을 올리기보다 같은 기간에 ROAS가 유지된 제품을 올리는 판단이 맞습니다.",
+      };
+    }
+
+    if (clicks != null && clicks >= 0.2 && cvr != null && cvr <= -0.2) {
+      return {
+        cause: "클릭은 늘었지만 CVR이 떨어졌습니다. 관심 없는 클릭이 늘어난 상태라 클릭 수만 보고 좋아졌다고 판단하면 안 됩니다.",
+        focus: "입찰가(광고비) 하향, 넓은 검색어 축소, 구매 없는 클릭 차단",
+        action: "클릭을 늘린 검색어 중 구매가 없는 항목을 먼저 줄이세요. 입찰가(광고비)는 10~15% 낮추고, ROAS가 유지되는 검색어만 남겨야 합니다. 이 상태에서 올리면 클릭은 더 늘어도 매출 효율은 더 나빠질 수 있습니다.",
+      };
+    }
+
+    if (ctr != null && ctr >= 0.15 && cvr != null && cvr <= -0.2 && (roas == null || roas <= 0.05)) {
+      return {
+        cause: "CTR은 좋아졌지만 CVR이 떨어져 의미 없는 클릭이 늘어난 흐름입니다. 노출/클릭보다 구매 전환 품질을 먼저 봐야 합니다.",
+        focus: "입찰가(광고비) 유지 또는 하향, 검색어 정리, 구매 없는 유입 축소",
+        action: "입찰가(광고비)를 올리지 말고 유지하거나 10% 낮추세요. 클릭은 많지만 구매가 없는 검색어를 제외하고, CVR과 ROAS가 같이 유지되는 제품은 우선 올리세요.",
+      };
+    }
+
+    if (conv != null && conv <= -0.35) {
+      return {
+        cause: "전환수가 의미 있게 줄었습니다. 매출 하락 전 단계일 수 있으므로 광고비를 무작정 유지하면 위험합니다.",
+        focus: "전환 발생 검색어 보호, 비전환 검색어 축소, 입찰가(광고비) 재조정",
+        action: "전환이 발생했던 검색어와 광고그룹은 유지하고, 전환 없는 검색어의 입찰가(광고비)를 낮추세요. 전환이 줄었는데도 비용이 유지되거나 늘었다면 10~20% 낮춰 효율 제품 쪽을 올리는 것이 좋습니다.",
+      };
+    }
+
+    if (roas != null && roas <= -0.2) {
+      return {
+        cause: "ROAS가 떨어졌습니다. 같은 돈을 써도 매출이 덜 나오는 상태라 입찰 확장보다 비용 방어가 먼저입니다.",
+        focus: "입찰가(광고비) 하향, 고비용 저매출 검색어 정리, 효율 제품으로 이동",
+        action: "비용 상위 검색어를 매출 발생 여부로 나눠 보세요. 비용은 큰데 매출이 낮은 검색어는 입찰가(광고비)를 낮추거나 제외하고, 전환당 매출이 높은 제품/키워드 쪽을 올리세요.",
+      };
+    }
+
+    if (impressions != null && impressions <= -0.15 && (roas == null || roas >= 0) && (cvr == null || cvr >= 0)) {
+      return {
+        cause: "노출은 줄었지만 CVR/ROAS는 유지되고 있습니다. 성과가 나쁜 게 아니라 보여지는 양이 줄어든 상태일 수 있습니다.",
+        focus: "입찰가(광고비) 소폭 상향 테스트",
+        action: "입찰가(광고비)를 10% 정도만 올려 노출 회복을 테스트하세요. 총예산은 늘리지 말고, 효율이 유지될 때만 비효율 제품을 낮추고 이 제품을 올리면 됩니다.",
+      };
+    }
+
+    return {
+      cause: "한 지표만으로 판단하기 어렵고, 노출·클릭·전환·ROAS가 섞여 움직이는 복합 구간입니다.",
+      focus: "광고비 상위 검색어, 전환 발생 여부, ROAS 유지 여부",
+      action: "입찰가(광고비)를 크게 바꾸지 말고 비용 상위 검색어부터 전환 유무를 확인하세요. 전환 없는 검색어는 낮추고, ROAS가 유지되는 제품은 조금씩 올리는 방식이 안전합니다.",
+    };
+  };
+  const baseGroups = groupByName(baseRows);
+  const currentGroups = groupByName(currentRows);
+  const currentPeriodDays = Math.max(1, new Set(currentRows.map(rowDate)).size);
+  const names = [...new Set([...baseGroups.keys(), ...currentGroups.keys()])];
+  const currentStartDate = currentRows.reduce<string | null>((earliest, row) => {
+    const date = rowDate(row);
+    return earliest == null || date < earliest ? date : earliest;
+  }, null);
+  const historyRowsAll = currentStartDate != null
+    ? allRows.filter((row) => rowDate(row) < currentStartDate)
+    : baseRows;
+  const historyGroups = groupByName(historyRowsAll);
+  const overallHistoryMetrics = agg(historyRowsAll);
+  const minimumInvestRoas = Math.max(3, current.roas * 0.8);
+  const minimumHistoryRoas = Math.max(1, overallHistoryMetrics.roas * 0.5);
+  const minimumPoorRoas = Math.max(0.8, current.roas * 0.35);
+  const productHistory = (name: string, fallbackRows: MetricRow[]) => {
+    const historyRows = historyGroups.get(name) ?? fallbackRows;
+    const historyDates = [...new Set(historyRows.map(rowDate))].sort();
+    const recentDateSet = new Set(historyDates.slice(-7));
+    const recentRows = historyRows.filter((row) => recentDateSet.has(rowDate(row)));
+    const metrics = agg(historyRows);
+    const recentMetrics = agg(recentRows);
+    return {
+      metrics,
+      recentMetrics,
+      recentDays: Math.max(1, recentDateSet.size),
+      activeDays: historyDates.length,
+      hasStrongHistory:
+        metrics.conversionValue >= 50000 &&
+        metrics.cost > 0 &&
+        metrics.roas >= minimumHistoryRoas &&
+        metrics.conversions >= 2,
+    };
+  };
+
+  type ProductDriver = {
+    name: string;
+    detail: string;
+    reason: string;
+    score: number;
+  };
+
+  const productDriversForCategory = (
+    slug: string,
+    mode: "bad" | "good",
+  ): ProductDriver[] =>
+    names
+      .map((name): ProductDriver | null => {
+        const prevRows = (baseGroups.get(name) ?? []).filter((row) => row.category === slug);
+        const curRows = (currentGroups.get(name) ?? []).filter((row) => row.category === slug);
+        if (prevRows.length === 0 && curRows.length === 0) return null;
+
+        const prev = agg(prevRows);
+        const cur = agg(curRows);
+        const displayName = truncName(name, 34);
+        const rev = ratioDelta(cur.conversionValue, prev.conversionValue);
+        const cost = ratioDelta(cur.cost, prev.cost);
+        const conv = ratioDelta(cur.conversions, prev.conversions);
+        const roasDelta = cur.roas - prev.roas;
+        const lostRevenue = Math.max(0, prev.conversionValue - cur.conversionValue);
+        const extraCost = Math.max(0, cur.cost - prev.cost);
+        const metricSummary = `매출 ${fmtWon(prev.conversionValue)} → ${fmtWon(cur.conversionValue)}, 광고비 ${fmtWon(prev.cost)} → ${fmtWon(cur.cost)}, ROAS ${fmtRoas(prev.roas)} → ${fmtRoas(cur.roas)}`;
+
+        if (mode === "good") {
+          if (cur.conversionValue >= 10000 && rev != null && rev >= 0.2 && cur.roas >= prev.roas) {
+            return {
+              name: displayName,
+              reason: "매출과 효율 개선",
+              detail: `${displayName}: 매출 ${fmtDelta(rev)}, ROAS ${fmtRoas(prev.roas)} → ${fmtRoas(cur.roas)}`,
+              score: rev + cur.conversionValue / 100000,
+            };
+          }
+          return null;
+        }
+
+        if (prevRows.length === 0 && cur.cost >= 10000 && cur.conversionValue <= 0) {
+          return {
+            name: displayName,
+            reason: "신규 비용 발생/매출 없음",
+            detail: `${displayName}: 신규 광고비 ${fmtWon(cur.cost)}, 매출 ${fmtWon(cur.conversionValue)}`,
+            score: cur.cost / 10000 + cur.clicks / 20,
+          };
+        }
+
+        if (prev.conversionValue >= 30000 && rev != null && rev <= -0.25) {
+          return {
+            name: displayName,
+            reason: "매출 하락",
+            detail: `${displayName}: ${metricSummary}`,
+            score: lostRevenue / 50000 + Math.abs(rev) + Math.abs(Math.min(conv ?? 0, 0)),
+          };
+        }
+
+        if (cur.cost >= 10000 && cost != null && cost >= 0.25 && (rev == null || rev <= 0.05 || roasDelta <= -0.25)) {
+          return {
+            name: displayName,
+            reason: "비용 증가 대비 매출 약함",
+            detail: `${displayName}: ${metricSummary}`,
+            score: extraCost / 20000 + cost + Math.abs(Math.min(rev ?? 0, 0)) + Math.abs(Math.min(roasDelta, 0)),
+          };
+        }
+
+        if (prev.conversions >= 2 && conv != null && conv <= -0.35) {
+          return {
+            name: displayName,
+            reason: "전환수 하락",
+            detail: `${displayName}: 전환 ${fmtInt(prev.conversions)}건 → ${fmtInt(cur.conversions)}건, ${metricSummary}`,
+            score: Math.abs(conv) + lostRevenue / 70000,
+          };
+        }
+
+        if (prev.cost >= 10000 && roasDelta <= -0.35) {
+          return {
+            name: displayName,
+            reason: "ROAS 하락",
+            detail: `${displayName}: ${metricSummary}`,
+            score: Math.abs(roasDelta) + extraCost / 30000,
+          };
+        }
+
+        return null;
+      })
+      .filter((item): item is ProductDriver => item != null)
+      .sort((a, b) => b.score - a.score);
+  const productInsights = names
+    .map((name): ScoredExplanation | null => {
+      const prevRows = baseGroups.get(name) ?? [];
+      const curRows = currentGroups.get(name) ?? [];
+      if (prevRows.length === 0 && curRows.length === 0) return null;
+
+      const prev = agg(prevRows);
+      const cur = agg(curRows);
+      const category = categoryName(curRows[0]?.category ?? prevRows[0]?.category ?? "all");
+      const displayName = truncName(name, 44);
+      const rev = ratioDelta(cur.conversionValue, prev.conversionValue);
+      const cost = ratioDelta(cur.cost, prev.cost);
+      const conv = ratioDelta(cur.conversions, prev.conversions);
+      const roasDrop = cur.roas - prev.roas;
+      const lostRevenue = Math.max(0, prev.conversionValue - cur.conversionValue);
+      const extraCost = Math.max(0, cur.cost - prev.cost);
+      const diagnosis = diagnoseProduct(prev, cur);
+      const impressions = ratioDelta(cur.impressions, prev.impressions);
+      const revenueChange = ratioDelta(cur.conversionValue, prev.conversionValue);
+      const cvrChange = ratioDelta(cur.cvr, prev.cvr);
+      const roasChange = ratioDelta(cur.roas, prev.roas, 0.1);
+      const efficiencyHeld = (roasChange == null || roasChange >= -0.1) && (cvrChange == null || cvrChange >= -0.1);
+      const history = productHistory(name, prevRows);
+      const cvrOkVsOverall = current.cvr <= 0 || cur.cvr >= current.cvr * 0.7;
+      const isEfficientNow =
+        cur.conversionValue >= 10000 &&
+        cur.cost > 0 &&
+        cur.roas >= minimumInvestRoas &&
+        cur.conversions >= 2 &&
+        cvrOkVsOverall;
+      const exposureNeedsHelp = impressions != null && impressions <= -0.1;
+      const recentHistoryHasSignal =
+        history.recentMetrics.cost >= 3000 ||
+        history.recentMetrics.conversions >= 2 ||
+        history.recentMetrics.conversionValue >= 30000;
+      const recentHistoryIsGood =
+        recentHistoryHasSignal &&
+        history.recentMetrics.conversionValue >= 30000 &&
+        history.recentMetrics.roas >= minimumHistoryRoas &&
+        history.recentMetrics.conversions >= 2;
+      const recentHistoryIsWeak =
+        recentHistoryHasSignal &&
+        (history.recentMetrics.conversionValue <= 0 ||
+          history.recentMetrics.roas < minimumPoorRoas ||
+          (current.cvr > 0 &&
+            history.recentMetrics.cvr < current.cvr * 0.5 &&
+            history.recentMetrics.conversions <= 1));
+      const historyDays = Math.max(1, history.activeDays);
+      const recentHistoryDays = Math.max(1, history.recentDays);
+      const currentDailyRevenue = cur.conversionValue / currentPeriodDays;
+      const currentDailyCost = cur.cost / currentPeriodDays;
+      const currentDailyConversions = cur.conversions / currentPeriodDays;
+      const historyDailyRevenue = history.metrics.conversionValue / historyDays;
+      const historyDailyCost = history.metrics.cost / historyDays;
+      const historyDailyConversions = history.metrics.conversions / historyDays;
+      const recentDailyRevenue = history.recentMetrics.conversionValue / recentHistoryDays;
+      const recentDailyCost = history.recentMetrics.cost / recentHistoryDays;
+      const currentVsHistoryRevenue = ratioDelta(currentDailyRevenue, historyDailyRevenue);
+      const currentVsHistoryCost = ratioDelta(currentDailyCost, historyDailyCost);
+      const currentVsHistoryRoas = ratioDelta(cur.roas, history.metrics.roas, 0.1);
+      const currentVsRecentRevenue = ratioDelta(currentDailyRevenue, recentDailyRevenue);
+      const currentVsRecentCost = ratioDelta(currentDailyCost, recentDailyCost);
+      const historyTrendStillStrong = history.hasStrongHistory && recentHistoryIsGood && !recentHistoryIsWeak;
+      const flowInvestmentCandidate =
+        historyTrendStillStrong &&
+        cur.cost > 0 &&
+        cur.conversions >= 1 &&
+        cur.roas >= Math.max(minimumHistoryRoas, history.metrics.roas * 0.7) &&
+        (currentVsHistoryRevenue == null || currentVsHistoryRevenue >= -0.2) &&
+        (currentVsRecentRevenue == null || currentVsRecentRevenue >= -0.35);
+      const baseDetails = [
+        `현재 수치: 광고비 ${fmtWon(cur.cost)} | 매출 ${fmtWon(cur.conversionValue)} | 구매 ${fmtInt(cur.conversions)}건 | ROAS ${fmtRoas(cur.roas)} | CTR ${fmtPct(cur.ctr)} | CVR ${fmtPct(cur.cvr)}`,
+        `흐름: 선택기간 일평균 매출 ${fmtWon(Math.round(currentDailyRevenue))} | 전체 과거 일평균 매출 ${fmtWon(Math.round(historyDailyRevenue))} | 최근 ${recentHistoryDays}일 일평균 매출 ${fmtWon(Math.round(recentDailyRevenue))}`,
+        `세부 정리: ${metricVsAverage("ROAS", cur.roas, current.roas, fmtRoas)} | ${metricVsAverage("CTR", cur.ctr, current.ctr, fmtPct)} | ${metricVsAverage("CVR", cur.cvr, current.cvr, fmtPct)}`,
+      ];
+      const noRevenueSpend = cur.cost >= 1000 && cur.clicks >= 1 && cur.conversionValue <= 0;
+      const poorCurrentEfficiency = cur.cost >= 1000 && cur.roas < minimumPoorRoas && cur.conversionValue < 10000;
+      const costUpWeakSales = cur.cost >= 1000 && cost != null && cost >= 0.15 && ((rev != null && rev <= 0.05) || (prev.conversionValue <= 0 && cur.conversionValue <= 0));
+      const conversionLostWithSpend = prev.conversions >= 1 && cur.conversions <= 0 && cur.cost >= 1000;
+      const historicalCostWaste =
+        cur.cost >= 1000 &&
+        history.metrics.cost > 0 &&
+        currentVsHistoryCost != null &&
+        currentVsHistoryCost >= 0.2 &&
+        (currentVsHistoryRevenue == null || currentVsHistoryRevenue <= -0.2) &&
+        currentVsHistoryRoas != null &&
+        currentVsHistoryRoas <= -0.35;
+      const longTermWeakSpend =
+        cur.cost >= 1000 &&
+        !history.hasStrongHistory &&
+        cur.conversionValue <= 0 &&
+        history.metrics.conversionValue < 30000;
+      const shouldCutCost =
+        noRevenueSpend ||
+        poorCurrentEfficiency ||
+        costUpWeakSales ||
+        conversionLostWithSpend ||
+        historicalCostWaste ||
+        longTermWeakSpend;
+      const cutReason = historicalCostWaste
+        ? "전체 과거 흐름보다 광고비는 높고 매출/효율은 낮습니다."
+        : longTermWeakSpend
+          ? "과거 흐름도 약하고 현재 매출도 없습니다."
+          : noRevenueSpend
+            ? "광고비는 쓰고 있지만 매출이 없습니다."
+            : conversionLostWithSpend
+              ? "이전에는 전환이 있었지만 비교기간에는 전환이 끊겼습니다."
+              : costUpWeakSales
+                ? "광고비가 늘었는데 매출이 따라오지 않았습니다."
+                : "광고효율이 전체보다 낮습니다.";
+      const cutConfirmedByHistory =
+        recentHistoryIsWeak ||
+        (!history.hasStrongHistory && !recentHistoryIsGood) ||
+        (historicalCostWaste && !historyTrendStillStrong);
+      const cutShouldBeDeferred = shouldCutCost && historyTrendStillStrong;
+      if (cutShouldBeDeferred) {
+        return {
+          score: cur.cost / 1500 + Math.abs(Math.min(currentVsHistoryRevenue ?? rev ?? 0, 0)),
+          item: {
+            tone: "warn",
+            title: `${displayName} 감액 보류 점검`,
+            body: `선택 기간만 보면 성과가 나쁘지만, 전체 과거와 최근 흐름이 좋아 바로 줄이면 회복 가능한 제품을 놓칠 수 있습니다.`,
+            details: [
+              ...baseDetails,
+              "결론: 과거와 최근 흐름이 아직 살아 있어 지금은 줄이지 말고 한 번 더 확인하는 쪽이 안전합니다.",
+            ],
+            action: "지금은 입찰가(광고비)를 유지하세요. 다음 업로드에서도 전체 과거 대비 매출과 광고효율이 계속 낮으면 그때 10%만 줄이세요.",
+          },
+        };
+      }
+
+      if (flowInvestmentCandidate) {
+        return {
+          score: history.metrics.roas + cur.roas + currentDailyRevenue / 10000 + Math.max(currentVsHistoryRevenue ?? 0, 0),
+          item: {
+            tone: "good",
+            title: `${displayName} 과거 흐름상 광고비 이동 후보`,
+            body: `직전 기간보다 전체 과거와 최근 7일 흐름을 기준으로 봤을 때, 다른 제품을 낮춘 만큼 올려볼 만한 제품입니다.`,
+            details: baseDetails,
+            action: currentVsHistoryRevenue != null && currentVsHistoryRevenue >= 0.15
+              ? "전체 과거 하루 평균보다 매출이 올라온 상태입니다. 총예산은 늘리지 말고, 비용 줄일 제품은 낮추고 이 제품은 10~20% 올려보세요."
+              : exposureNeedsHelp
+                ? "성과 흐름은 좋은데 노출이 약합니다. 입찰가(광고비)를 5~10%만 올려 노출 회복을 테스트하세요."
+                : "지금은 유지하세요. 비용 줄일 제품이 있을 때만 이 제품을 소폭 올려보세요.",
+          },
+        };
+      }
+
+      if (
+        history.hasStrongHistory &&
+        isEfficientNow &&
+        impressions != null &&
+        impressions <= -0.15 &&
+        revenueChange != null &&
+        revenueChange <= -0.15 &&
+        efficiencyHeld
+      ) {
+        return {
+          score: cur.roas + Math.abs(impressions) + Math.abs(revenueChange) + cur.conversionValue / 100000,
+          item: {
+            tone: "good",
+            title: `${displayName} 회복 테스트 후보`,
+            body: `매출은 줄었지만 효율은 아직 좋습니다. 바로 줄이지 말고 회복 테스트를 해볼 제품입니다.`,
+            details: baseDetails,
+            action: "입찰가(광고비)를 5~10%만 올려 하루 테스트하세요. 효율이 유지될 때만 비효율 제품은 낮추고 이 제품은 올리는 방식으로 옮기고, 떨어지면 바로 원래대로 돌리세요.",
+          },
+        };
+      }
+
+      if (history.hasStrongHistory && isEfficientNow && revenueChange != null && revenueChange <= -0.2) {
+        return {
+          score: cur.roas + cur.conversionValue / 50000 + Math.abs(revenueChange),
+          item: {
+            tone: "good",
+            title: `${displayName} 회복/보호 후보`,
+            body: `매출은 줄었지만 광고효율과 구매는 살아 있습니다. 하루만 보고 광고비를 회수하기엔 아까운 제품입니다.`,
+            details: baseDetails,
+            action: exposureNeedsHelp
+              ? "노출도 줄었습니다. 입찰가(광고비)를 5~10%만 올려 보고, 효율이 유지될 때만 비효율 제품을 낮추고 이 제품을 올리세요."
+              : "노출은 크게 문제 없습니다. 지금은 입찰가(광고비)를 유지하고, 다음에도 매출이 빠지면 낮추세요.",
+          },
+        };
+      }
+
+      if (
+        history.hasStrongHistory &&
+        isEfficientNow &&
+        (cur.conversionValue >= 30000 || history.recentMetrics.conversionValue >= 30000) &&
+        (revenueChange == null || revenueChange >= 0.15 || prev.conversionValue <= 0) &&
+        (roasChange == null || roasChange >= -0.2) &&
+        (cvrChange == null || cvrChange >= -0.2)
+      ) {
+        return {
+          score: cur.roas + cur.conversionValue / 50000 + Math.max(revenueChange ?? 0.25, 0),
+          item: {
+            tone: "good",
+            title: `${displayName} 광고비 재배분 후보`,
+            body: `지금 성과가 좋고 과거에도 팔렸습니다. 비용 줄일 제품을 낮춘 만큼 먼저 올려볼 제품입니다.`,
+            details: [...baseDetails, "결론: 과거와 최근 흐름이 모두 괜찮아 다른 제품을 낮춘 만큼 올려볼 후보입니다."],
+            action: exposureNeedsHelp
+              ? "성과는 좋은데 노출이 줄었습니다. 총예산은 늘리지 말고 비효율 제품을 낮춘 만큼 이 제품의 입찰가(광고비)를 5~10%만 올려보세요."
+              : "지금은 유지하고, 비용 줄일 제품을 낮춘 뒤 이 제품은 10~20% 범위에서만 올려보세요. 노출이 부족할 때만 조금 올리면 됩니다.",
+          },
+        };
+      }
+
+      if (history.hasStrongHistory && isEfficientNow) {
+        return {
+          score: cur.roas + cur.conversionValue / 70000,
+          item: {
+            tone: "good",
+            title: `${displayName} 힘 보탤 후보`,
+            body: `현재 효율도 좋고 과거 성과도 있습니다. 다른 제품을 낮춘 만큼 올려볼 수 있는 제품입니다.`,
+            details: baseDetails,
+            action: exposureNeedsHelp
+              ? "노출이 줄었습니다. 입찰가(광고비)를 5~10%만 올려보고, 광고효율이 떨어지면 멈추세요."
+              : "지금은 유지하고, 비용 줄일 제품을 낮춘 뒤 이 제품은 소폭만 올려보세요. 클릭만 늘고 구매가 안 늘면 다시 원래대로 돌리세요.",
+          },
+        };
+      }
+
+      if (shouldCutCost && cutConfirmedByHistory) {
+        return {
+          score: cur.cost / 1000 + Math.max(0, minimumPoorRoas - cur.roas) + Math.abs(Math.min(rev ?? 0, 0)),
+          item: {
+            tone: "danger",
+            title: `${displayName} 비용 줄일 후보`,
+            body: `${cutReason} 지금은 이 제품의 입찰가(광고비)를 낮추고 더 잘 팔리는 제품을 올리는 편이 낫습니다.`,
+            details: [
+              ...baseDetails,
+              history.hasStrongHistory
+                ? "결론: 과거에는 잘 팔렸지만 최근에는 광고비가 구매로 잘 이어지지 않습니다. 회복 신호가 보일 때까지 광고비를 줄이는 쪽이 안전합니다."
+                : "결론: 과거에도 충분히 팔린 기록이 약하고, 현재도 광고비가 매출로 돌아오지 않습니다. 우선 줄이는 쪽이 안전합니다.",
+            ],
+            action: "이 제품의 입찰가(광고비)를 10~20% 줄이세요. 낮춘 만큼 위의 힘 보탤 제품을 먼저 올리세요.",
+          },
+        };
+      }
+
+      if (prevRows.length === 0 && cur.cost >= 10000 && cur.conversionValue <= 0) {
+        return {
+          score: cur.cost / 10000 + cur.clicks / 20,
+          item: {
+            tone: "warn",
+            title: `${displayName} 신규 집행 비용 점검`,
+            body: `돈은 쓰고 있는데 아직 매출이 없습니다. 테스트가 아니라면 빠르게 줄여야 합니다.`,
+            details: baseDetails,
+            action: "하루만 더 보고, 클릭은 있는데 구매가 없으면 입찰가(광고비)를 낮추세요.",
+          },
+        };
+      }
+
+      if (prev.conversionValue >= 30000 && rev != null && rev <= -0.25) {
+        return {
+          score: lostRevenue / 50000 + Math.abs(rev) + Math.abs(Math.min(conv ?? 0, 0)),
+          item: {
+            tone: "warn",
+            title: `${displayName} 매출 하락 우선 점검`,
+            body: `매출이 크게 줄었습니다. 아직 올릴 제품은 아니고, 원인을 먼저 봐야 합니다.`,
+            details: baseDetails,
+            action: cur.cost < 1000 && cur.clicks <= 1
+              ? "현재는 비용과 클릭이 거의 없어 바로 줄일 대상이라기보다, 노출/입찰 상태가 왜 약해졌는지 먼저 확인하세요."
+              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가(광고비)를 낮추세요.",
+          },
+        };
+      }
+
+      if (cutConfirmedByHistory && cur.cost >= 1000 && cost != null && cost >= 0.25 && (rev == null || rev <= 0.05 || roasDrop <= -0.25)) {
+        return {
+          score: extraCost / 2000 + cost + Math.abs(Math.min(rev ?? 0, 0)) + Math.abs(Math.min(roasDrop, 0)),
+          item: {
+            tone: "danger",
+            title: `${displayName} 비용 줄일 후보`,
+            body: `광고비가 늘었지만 매출은 따라오지 않았습니다. 광고비를 줄이는 쪽이 좋습니다.`,
+            details: [...baseDetails, `비용 증가: 광고비가 ${fmtWon(extraCost)} 더 늘었습니다.`],
+            action: "입찰가(광고비)를 10~20% 낮추고, 구매 없는 검색어는 제외하세요. 낮춘 만큼 힘 보탤 제품을 올리세요.",
+          },
+        };
+      }
+
+      if (prev.conversions >= 2 && conv != null && conv <= -0.35) {
+        return {
+          score: Math.abs(conv) + lostRevenue / 70000,
+          item: {
+            tone: "warn",
+            title: `${displayName} 전환 회복 필요`,
+            body: `구매가 줄었습니다. 클릭보다 실제 구매가 왜 줄었는지 먼저 봐야 합니다.`,
+            details: baseDetails,
+            action: cur.cost < 1000 && cur.clicks <= 1
+              ? "현재는 비용과 클릭이 거의 없어 바로 줄일 대상이라기보다, 노출/입찰 상태가 왜 약해졌는지 먼저 확인하세요."
+              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가(광고비)를 낮추세요.",
+          },
+        };
+      }
+
+      if (prev.cost >= 10000 && roasDrop <= -0.35) {
+        return {
+          score: Math.abs(roasDrop) + extraCost / 30000,
+          item: {
+            tone: "warn",
+            title: `${displayName} 광고효율 하락 점검`,
+            body: `광고효율이 내려갔습니다. 돈을 더 쓰기 전에 비용부터 확인해야 합니다.`,
+            details: baseDetails,
+            action: cur.cost < 1000 && cur.clicks <= 1
+              ? "현재는 비용과 클릭이 거의 없어 바로 줄일 대상이라기보다, 노출/입찰 상태가 왜 약해졌는지 먼저 확인하세요."
+              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가(광고비)를 낮추세요.",
+          },
+        };
+      }
+      return null;
+    })
+    .filter((item): item is ScoredExplanation => item != null)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.item);
+
+  const categoryInsights = currentByCategory
+    .map((cur): ScoredExplanation | null => {
+      const prev = baseByCategory.find((item) => item.slug === cur.slug)?.metrics;
+      if (!prev) return null;
+      const rev = ratioDelta(cur.metrics.conversionValue, prev.conversionValue, 10000);
+      const cost = ratioDelta(cur.metrics.cost, prev.cost, 5000);
+      const badDrivers = productDriversForCategory(cur.slug, "bad").slice(0, 3);
+      const goodDrivers = productDriversForCategory(cur.slug, "good").slice(0, 2);
+      if (badDrivers.length === 0) return null;
+
+      const driverNames = badDrivers.map((driver) => driver.name).join(", ");
+      const goodNames = goodDrivers.map((driver) => driver.name).join(", ");
+      const goodContext = goodDrivers.length > 0
+        ? ` 반대로 ${goodNames}은 좋은 흐름이므로 함께 줄이면 안 됩니다.`
+        : "";
+      const driverDetails = [
+        `원인 제품군: ${badDrivers.map((driver) => `${driver.name}(${driver.reason})`).join(", ")}`,
+        ...badDrivers.map((driver) => driver.detail),
+        ...(goodDrivers.length > 0
+          ? [`같은 카테고리의 유지/이동 후보: ${goodDrivers.map((driver) => driver.detail).join(" / ")}`]
+          : []),
+      ];
+
+      if (rev != null && rev <= -0.2) {
+        return {
+          score: Math.abs(rev) + badDrivers[0].score,
+          item: {
+            tone: "danger",
+            title: `${cur.label} 하락 원인: ${driverNames}`,
+            body: `${cur.label} 전체 매출은 하락했지만, 문제는 카테고리 전체가 아니라 위 제품군 쪽에 몰려 있습니다.${goodContext}`,
+            details: [signalLine(prev, cur.metrics), metricLine(prev, cur.metrics), flowLine(prev, cur.metrics), ...driverDetails],
+            action: `${driverNames}은 입찰가(광고비)를 먼저 낮추고, 비용만 쓰는 검색어를 제외하세요.${goodDrivers.length > 0 ? ` ${goodNames}은 성과가 확인된 제품이라 올릴 후보로 분리하세요.` : ""}`,
+          },
+        };
+      }
+      if (cost != null && cost >= 0.2 && (rev == null || rev <= 0.05)) {
+        return {
+          score: cost + badDrivers[0].score,
+          item: {
+            tone: "warn",
+            title: `${cur.label} 비용 점검 대상: ${driverNames}`,
+            body: `${cur.label} 광고비 증가가 매출 증가로 충분히 이어지지 않았고, 원인은 위 제품군에서 먼저 확인됩니다.${goodContext}`,
+            details: [signalLine(prev, cur.metrics), metricLine(prev, cur.metrics), flowLine(prev, cur.metrics), ...driverDetails],
+            action: `${driverNames}의 검색어별 비용과 전환 여부를 나눠 보고, 전환 없는 검색어는 제외하세요.${goodDrivers.length > 0 ? ` ${goodNames}처럼 효율이 유지되는 제품을 올리는 편이 자연스럽습니다.` : ""}`,
+          },
+        };
+      }
+      return null;
+    })
+    .filter((item): item is ScoredExplanation => item != null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map((entry) => entry.item);
+
+  const actionableItems = productInsights
+    .filter((item) => item.tone === "good" || item.tone === "danger" || item.tone === "warn");
+  const requiredActions = [
+    ...actionableItems.filter((item) => item.tone === "good").slice(0, 2),
+    ...actionableItems.filter((item) => item.tone === "danger").slice(0, 2),
+    ...actionableItems.filter((item) => item.tone === "warn").slice(0, 1),
+  ].slice(0, 5);
+
+  if (requiredActions.length > 0) return requiredActions;
+
+  return [
+    {
+      tone: "neutral",
+      title: "추천할 조정 항목이 없습니다",
+      body: "이번 비교 기간에서는 올리거나 줄일 만큼 뚜렷한 제품이 보이지 않습니다.",
+      details: [
+        "작은 변동까지 모두 조치하면 광고비와 소재가 흔들릴 수 있어, 현재 결과에는 의미 있는 하락/비효율만 표시합니다.",
+        "다음 업로드에서 같은 제품이 2회 이상 반복 하락하거나 광고비가 늘어도 매출이 따라오지 않으면 조치 항목으로 올립니다.",
+      ],
+      action: "지금은 크게 바꾸지 말고 유지하세요. 같은 문제가 한 번 더 나오면 그때 이동/감액 후보로 올립니다.",
+    },
+  ];
 }
 
 function Bar({ pct, color }: { pct: number; color: string }) {
@@ -272,6 +927,158 @@ function Delta({
     <span className={`text-[11px] font-semibold ${good ? "text-[#03C75A]" : "text-red-500"}`}>
       {sign}{Math.abs(delta * 100).toFixed(1)}%
     </span>
+  );
+}
+
+
+type ExplanationGroup = {
+  tone: ComparisonExplanation["tone"];
+  meta: (typeof EXPLANATION_TONE_META)[ComparisonExplanation["tone"]];
+  items: ComparisonExplanation[];
+};
+
+const groupExplanations = (items: ComparisonExplanation[]): ExplanationGroup[] =>
+  EXPLANATION_TONE_ORDER.map((tone) => ({
+    tone,
+    meta: EXPLANATION_TONE_META[tone],
+    items: items.filter((item) => item.tone === tone),
+  })).filter((group) => group.items.length > 0);
+
+function detailParts(detail: string) {
+  const index = detail.indexOf(":");
+  if (index <= 0 || index > 8) return { label: "근거", text: detail };
+  return {
+    label: detail.slice(0, index),
+    text: detail.slice(index + 1).trim(),
+  };
+}
+
+const isConclusionDetail = (detail: string) => detail.trim().startsWith("결론:");
+
+function conclusionText(item: ComparisonExplanation) {
+  const conclusion = item.details.find(isConclusionDetail);
+  return conclusion ? detailParts(conclusion).text : item.body;
+}
+
+function statParts(text: string) {
+  const parts = text.split("|").map((part) => part.trim()).filter(Boolean);
+  return parts.length >= 2 ? parts : null;
+}
+
+function detailCardClass(label: string) {
+  if (label.includes("현재") || label.includes("평균") || label.includes("흐름")) {
+    return "border-slate-200 bg-white";
+  }
+  if (label.includes("세부")) return "border-sky-100 bg-sky-50/70";
+  return "border-white/80 bg-white/75";
+}
+function ActionRecommendationPanel({
+  title,
+  subtitle,
+  grouped,
+}: {
+  title: string;
+  subtitle: string;
+  grouped: ExplanationGroup[];
+}) {
+  return (
+    <details className={CARD_CLASS} open>
+      <summary className="mb-4 flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+          <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
+        </div>
+        <span aria-hidden="true" className="rounded-full bg-[#F6F8FB] px-3 py-1 text-xs font-semibold text-slate-500">⌄</span>
+      </summary>
+      <div className="space-y-4">
+        {grouped.map((group) => (
+          <section key={group.tone} className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <span className={`h-2 w-2 rounded-full ${group.meta.dotClass}`} />
+              <h4 className="text-xs font-semibold text-slate-700">{group.meta.label}</h4>
+              <span className="rounded-full bg-[#F6F8FB] px-2 py-0.5 text-[11px] font-medium text-slate-400">
+                {group.items.length}개
+              </span>
+            </div>
+            <div className="grid gap-2">
+              {group.items.map((item, index) => {
+                const toneMeta = EXPLANATION_TONE_META[item.tone];
+                const actionParts = actionDisplayParts(item);
+                const conclusion = conclusionText(item);
+                const evidenceDetails = item.details.filter((detail) => !isConclusionDetail(detail));
+                return (
+                  <details
+                    key={`${item.title}-${index}`}
+                    className={`group rounded-xl border ${toneMeta.cardClass}`}
+                  >
+                    <summary className="cursor-pointer list-none p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold ${toneMeta.labelClass}`}>
+                              {toneMeta.badge}
+                            </span>
+                            <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                              {actionParts.actionType}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[11px] font-semibold text-slate-400">제품</div>
+                              <div className="mt-1 break-words text-sm font-semibold leading-6 text-slate-900">
+                                {actionParts.target}
+                              </div>
+                            </div>
+                            <div className="border-l-4 border-slate-300 pl-3">
+                              <div className={`text-[11px] font-semibold ${toneMeta.labelClass}`}>바로 할 일</div>
+                              <p className="mt-1 text-sm font-bold leading-6 text-slate-900">
+                                {item.action}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="mt-1 shrink-0 text-xs font-semibold text-slate-400">
+                          근거 보기 <span aria-hidden="true" className="inline-block transition group-open:rotate-180">⌄</span>
+                        </span>
+                      </div>
+                    </summary>
+                    <div className="border-t border-white/70 px-4 pb-4 pt-3">
+                      <div className="rounded-lg border border-white/80 bg-white/90 px-3 py-2.5">
+                        <div className="text-[11px] font-semibold text-slate-400">결론</div>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{conclusion}</p>
+                      </div>
+                      <div className="mt-3 grid gap-2 md:grid-cols-2">
+                        {evidenceDetails.map((detail, detailIndex) => {
+                          const parts = detailParts(detail);
+                          const stats = statParts(parts.text);
+                          const isWideDetail = parts.label.includes("세부");
+                          return (
+                            <div key={detailIndex} className={`rounded-lg border px-3 py-2.5 ${isWideDetail ? "md:col-span-2" : ""} ${detailCardClass(parts.label)}`}>
+                              <div className="text-[11px] font-semibold text-slate-400">{parts.label}</div>
+                              {stats ? (
+                                <div className={`mt-2 grid gap-1.5 ${isWideDetail ? "" : "sm:grid-cols-2"}`}>
+                                  {stats.map((stat, statIndex) => (
+                                    <span key={statIndex} className="rounded-md bg-slate-50 px-2.5 py-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                      {stat}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="mt-1 text-xs leading-5 text-slate-600">{parts.text}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -366,7 +1173,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const analysisBMetrics = agg(analysisBRows);
   const analysisByCategoryA = byCatOf(analysisARows);
   const analysisByCategoryB = byCatOf(analysisBRows);
-  const analysisIssues = buildIssues(analysisBRows, analysisARows);
   const analysisComparisonMetric = (
     slug: string,
     pick: (m: DerivedMetrics) => number,
@@ -447,7 +1253,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                 기준기간 또는 비교기간에 표시할 데이터가 없습니다.
               </p>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-slate-500">
                     <tr className="border-b border-slate-200">
@@ -476,46 +1283,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-          </section>
+                </div>
 
-          <section className={CARD_CLASS}>
-            <h3 className="text-lg font-semibold text-slate-800">비교기간 변화 이슈 TOP5</h3>
-            <p className="mb-4 text-sm text-slate-400">
-              기준기간 {rangeText(analysisA.start, analysisA.end)} 대비 비교기간 {rangeText(analysisB.start, analysisB.end)} · 변화가 큰 순
-            </p>
-            {analysisARows.length === 0 || analysisBRows.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">
-                기준기간과 비교기간 모두에 데이터가 있어야 변화 이슈를 계산할 수 있습니다.
-              </p>
-            ) : analysisIssues.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">
-                기준기간 대비 비교기간의 큰 변화가 없습니다.
-              </p>
-            ) : (
-              <ul className="grid gap-2 md:grid-cols-2">
-                {analysisIssues.map((issue, i) => (
-                  <li
-                    key={i}
-                    className={`flex items-start gap-3 rounded-xl border p-3 ${
-                      issue.tone === "up"
-                        ? "border-emerald-200 bg-emerald-50"
-                        : issue.tone === "warn"
-                          ? "border-amber-200 bg-amber-50"
-                          : "border-slate-200 bg-slate-50"
-                    }`}
-                  >
-                    <span className="text-lg leading-none">{issue.emoji}</span>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-800">
-                        {issue.title}
-                      </div>
-                      <div className="text-xs text-slate-500">{issue.detail}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              </>
             )}
           </section>
         </div>
@@ -556,7 +1326,16 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const base = baseRows.length ? agg(baseRows) : null;
   const byCategory = byCatOf(currentRows);
   const byCategoryBase = baseRows.length ? byCatOf(baseRows) : null;
-
+  const dashboardActionExplanations = buildComparisonExplanations(
+    base ?? agg([]),
+    o,
+    byCatOf(baseRows),
+    byCategory,
+    baseRows,
+    currentRows,
+    data.rows,
+  );
+  const groupedDashboardExplanations = groupExplanations(dashboardActionExplanations);
   const current: DerivedMetrics =
     cat === "all" ? o : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
   const rows =
@@ -1002,6 +1781,11 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </div>
       </section>
 
+      <ActionRecommendationPanel
+        title="광고 조정 추천"
+        subtitle={`${periodText} 기준 · 전체 과거 흐름과 최근 7일, 직전 기간 ${basePeriodText}를 함께 보고 줄일 광고비와 옮길 곳을 보여줍니다.`}
+        grouped={groupedDashboardExplanations}
+      />
       </div>
     </>
   );
