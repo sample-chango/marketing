@@ -66,12 +66,30 @@ function matchField(rawHeader: string): CanonicalField | null {
   if (h.includes("일자") || h.includes("날짜") || h === "일" || h.includes("기간"))
     return "reportDate";
 
-  // 매출/전환금액 (전환수보다 먼저 검사)
-  if (h.includes("전환매출") || h.includes("전환금액") || (h.includes("매출") && !h.includes("수익")))
+  const isRateOrEfficiency =
+    h.includes("전환율") ||
+    h.includes("수익률") ||
+    h.includes("ROAS") ||
+    h.includes("률");
+  const isConversionCost =
+    h.includes("전환당비용") ||
+    h.includes("전환비용") ||
+    (h.includes("전환") && h.includes("비용"));
+
+  // 매출/전환금액. 구매완료 컬럼이 있으면 buildHeaderMap에서 우선 선택한다.
+  if (
+    !isRateOrEfficiency &&
+    !isConversionCost &&
+    (h.includes("전환매출") || h.includes("전환금액") || (h.includes("매출") && !h.includes("수익")))
+  )
     return "conversionValue";
 
-  // 전환수 (전환율/전환매출 제외)
-  if (h.includes("전환") && !h.includes("전환율") && !h.includes("전환매출") && !h.includes("전환금액"))
+  // 전환수. 전환율/전환매출/전환비용 계열 보조 지표는 제외한다.
+  if (
+    !isRateOrEfficiency &&
+    !isConversionCost &&
+    (h.includes("전환수") || (h.includes("전환") && !h.includes("전환매출") && !h.includes("전환금액")))
+  )
     return "conversions";
 
   // 노출수 (노출순위 제외)
@@ -88,7 +106,7 @@ function matchField(rawHeader: string): CanonicalField | null {
     return "clicks";
 
   // 비용/광고비 (클릭비용 제외)
-  if (h.includes("총비용") || h.includes("광고비") || (h.includes("비용") && !h.includes("클릭")))
+  if (h.includes("총비용") || h.includes("광고비") || (h.includes("비용") && !h.includes("클릭") && !h.includes("전환")))
     return "cost";
 
   return null;
@@ -148,17 +166,36 @@ function cleanCreativeName(value: string | null): string | null {
 }
 
 
+function headerPriority(field: CanonicalField, rawHeader: string): number {
+  const h = rawHeader.replace(/\(.*?\)/g, "").replace(/\s+/g, "");
+  if (field === "conversionValue" || field === "conversions") {
+    if (h.includes("구매완료")) return 30;
+    if (h.includes("총")) return 20;
+    return 10;
+  }
+  return 10;
+}
+
 /** 헤더 배열에서 필드→인덱스 맵 생성 */
 function buildHeaderMap(headers: string[]) {
   const map = new Map<CanonicalField, number>();
   const detected: Partial<Record<CanonicalField, string>> = {};
+  const priorities = new Map<CanonicalField, number>();
+
   headers.forEach((header, idx) => {
-    const field = matchField(String(header ?? ""));
-    if (field && !map.has(field)) {
+    const headerText = String(header ?? "");
+    const field = matchField(headerText);
+    if (!field) return;
+
+    const priority = headerPriority(field, headerText);
+    const currentPriority = priorities.get(field) ?? -1;
+    if (!map.has(field) || priority > currentPriority) {
       map.set(field, idx);
-      detected[field] = String(header);
+      detected[field] = headerText;
+      priorities.set(field, priority);
     }
   });
+
   return { map, detected };
 }
 
