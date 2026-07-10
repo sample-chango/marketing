@@ -10,7 +10,7 @@ import {
  * 네이버 검색광고 보고서(다운로드) 파서.
  * - 엑셀(.xlsx) / CSV 지원
  * - 보고서마다 컬럼 구성이 달라질 수 있어 한글 헤더를 "유연하게" 매칭합니다.
- * - 비율 컬럼(CTR/CVR/ROAS 등)은 무시하고 원시값(노출/클릭/비용/전환/매출)만 저장 →
+ * - 비율 컬럼(CTR/CVR/ROAS 등)은 무시하고 원시값(노출/클릭/비용/구매완료 전환수/구매완료 전환매출액)만 저장 →
  *   파생 지표는 metrics.ts에서 다시 계산합니다.
  */
 
@@ -76,16 +76,20 @@ function matchField(rawHeader: string): CanonicalField | null {
     h.includes("전환비용") ||
     (h.includes("전환") && h.includes("비용"));
 
-  // 매출/전환금액. 구매완료 컬럼이 있으면 buildHeaderMap에서 우선 선택한다.
+  const isPurchaseComplete = h.includes("구매완료");
+
+  // 구매완료 전환매출액만 매출로 사용한다. 총 전환매출액 fallback은 막는다.
   if (
+    isPurchaseComplete &&
     !isRateOrEfficiency &&
     !isConversionCost &&
     (h.includes("전환매출") || h.includes("전환금액") || (h.includes("매출") && !h.includes("수익")))
   )
     return "conversionValue";
 
-  // 전환수. 전환율/전환매출/전환비용 계열 보조 지표는 제외한다.
+  // 구매완료 전환수만 전환수로 사용한다. 총 전환수 fallback은 막는다.
   if (
+    isPurchaseComplete &&
     !isRateOrEfficiency &&
     !isConversionCost &&
     (h.includes("전환수") || (h.includes("전환") && !h.includes("전환매출") && !h.includes("전환금액")))
@@ -169,9 +173,7 @@ function cleanCreativeName(value: string | null): string | null {
 function headerPriority(field: CanonicalField, rawHeader: string): number {
   const h = rawHeader.replace(/\(.*?\)/g, "").replace(/\s+/g, "");
   if (field === "conversionValue" || field === "conversions") {
-    if (h.includes("구매완료")) return 30;
-    if (h.includes("총")) return 20;
-    return 10;
+    return h.includes("구매완료") ? 30 : 0;
   }
   return 10;
 }
@@ -225,6 +227,13 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
     warnings.push(
       "노출수/클릭수 컬럼을 찾지 못했습니다. 보고서 형식을 확인하세요.",
     );
+  }
+
+  if (!map.has("conversions")) {
+    warnings.push("구매완료 전환수 컬럼을 찾지 못했습니다. 총 전환수는 사용하지 않습니다.");
+  }
+  if (!map.has("conversionValue")) {
+    warnings.push("구매완료 전환매출액 컬럼을 찾지 못했습니다. 총 전환매출액은 사용하지 않습니다.");
   }
 
   const get = (cells: string[], f: CanonicalField): string | undefined => {
