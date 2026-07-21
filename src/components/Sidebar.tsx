@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useChangeAnalysis } from "@/components/AppShell";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
@@ -99,11 +100,23 @@ const itemIdle =
   "border border-transparent text-[#EEF2F7] hover:border-[#667384] hover:bg-[#3D4A5A] hover:text-white";
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { showChange, setShowChange } = useChangeAnalysis();
   const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
 
-  const activatePageLink = () => {
-    setShowChange(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      router.prefetch("/");
+      router.prefetch("/upload");
+      router.prefetch("/glossary");
+      if (isAdmin) router.prefetch("/admin/signups");
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [isAdmin, router]);
+
+  const activatePageLink = (href: string) => {
+    if (href === "/") setShowChange(false);
   };
 
   const renderNavItem = (item: NavItem) => {
@@ -114,7 +127,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       <Link
         key={item.href}
         href={item.href}
-        onClick={activatePageLink}
+        onClick={() => activatePageLink(item.href)}
         className={`${itemBase} ${active ? itemActive : itemIdle}`}
       >
         {item.icon}

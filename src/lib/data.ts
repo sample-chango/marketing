@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface MetricRow {
   category: string;
@@ -20,6 +20,13 @@ export function isSupabaseConfigured(): boolean {
   return (
     !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
     !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
+function canReadDashboardData(): boolean {
+  return (
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !!process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 }
 
@@ -61,36 +68,78 @@ function normalize(r: RawRow): MetricRow {
 }
 
 async function fetchRows(): Promise<MetricRow[]> {
-  if (!isSupabaseConfigured()) return [];
-  const supabase = await createClient();
+  if (!canReadDashboardData()) return [];
 
+  const supabase = createAdminClient();
   const pageSize = 1000;
-  const rows: RawRow[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const to = from + pageSize - 1;
-    const { data, error } = await supabase
+
+  try {
+    const first = await supabase
       .from("ad_metrics")
-      .select(SELECT_COLS)
+      .select(SELECT_COLS, { count: "exact" })
       .order("period_end", { ascending: true })
-      .range(from, to);
-    if (error) {
-      console.error("[data] fetchRows error:", error.message);
+      .range(0, pageSize - 1);
+
+    if (first.error) {
+      console.error("[data] fetchRows error:", first.error.message);
       return [];
     }
 
-    rows.push(...((data ?? []) as unknown as RawRow[]));
-    if ((data ?? []).length < pageSize) break;
-  }
+    const firstRows = (first.data ?? []) as unknown as RawRow[];
+    const total = first.count ?? firstRows.length;
 
-  return rows.map(normalize);
+    if (firstRows.length < pageSize || total <= firstRows.length) {
+      return firstRows.map(normalize);
+    }
+
+    if (first.count == null) {
+      const rows = [...firstRows];
+      for (let from = pageSize; ; from += pageSize) {
+        const to = from + pageSize - 1;
+        const { data, error } = await supabase
+          .from("ad_metrics")
+          .select(SELECT_COLS)
+          .order("period_end", { ascending: true })
+          .range(from, to);
+        if (error) {
+          console.error("[data] fetchRows error:", error.message);
+          return [];
+        }
+        rows.push(...((data ?? []) as unknown as RawRow[]));
+        if ((data ?? []).length < pageSize) break;
+      }
+      return rows.map(normalize);
+    }
+
+    const ranges: Array<[number, number]> = [];
+    for (let from = pageSize; from < total; from += pageSize) {
+      ranges.push([from, Math.min(from + pageSize - 1, total - 1)]);
+    }
+
+    const pages = await Promise.all(
+      ranges.map(async ([from, to]) => {
+        const { data, error } = await supabase
+          .from("ad_metrics")
+          .select(SELECT_COLS)
+          .order("period_end", { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        return (data ?? []) as unknown as RawRow[];
+      }),
+    );
+
+    return [...firstRows, ...pages.flat()].map(normalize);
+  } catch (error) {
+    console.error("[data] fetchRows error:", (error as Error).message);
+    return [];
+  }
 }
 
 const DEFAULT_DAILY_BUDGET = 40000;
 
-/** 일 예산 (settings.daily_budget) */
 async function fetchDailyBudget(): Promise<number> {
-  if (!isSupabaseConfigured()) return DEFAULT_DAILY_BUDGET;
-  const supabase = await createClient();
+  if (!canReadDashboardData()) return DEFAULT_DAILY_BUDGET;
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("settings")
     .select("value")
@@ -102,7 +151,7 @@ async function fetchDailyBudget(): Promise<number> {
 }
 
 export interface PeriodOption {
-  key: string; // 'start~end'
+  key: string;
   start: string;
   end: string;
 }
@@ -110,19 +159,22 @@ export interface PeriodOption {
 export interface DashboardData {
   configured: boolean;
   hasData: boolean;
-  /** 전체 행(모든 기간). 날짜/기간 전환·비교는 클라이언트에서 수행 */
   rows: MetricRow[];
-  /** 업로드된 기간 목록 (오름차순) */
   periods: PeriodOption[];
-  /** 일 예산 (원) */
   dailyBudget: number;
 }
 
-/** 기간 그룹키 (start~end). 단일 일자는 start=end */
-const periodKey = (r: MetricRow) => `${r.period_start}~${r.period_end}`;
+const periodKey = (r: MetricRow) => r.period_start + "~" + r.period_end;
+const DASHBOARD_CACHE_TTL_MS = 60_000;
+let dashboardCache: { expiresAt: number; data: DashboardData } | null = null;
+let dashboardCachePromise: Promise<DashboardData> | null = null;
 
-/** 종합 대시보드 데이터 — 전체 행 + 기간 목록 + 예산 */
-export async function getDashboardData(): Promise<DashboardData> {
+export function clearDashboardDataCache() {
+  dashboardCache = null;
+  dashboardCachePromise = null;
+}
+
+async function loadDashboardData(): Promise<DashboardData> {
   const configured = isSupabaseConfigured();
   const [rows, dailyBudget] = await Promise.all([
     fetchRows(),
@@ -146,4 +198,24 @@ export async function getDashboardData(): Promise<DashboardData> {
     periods,
     dailyBudget,
   };
+}
+
+export async function getDashboardData(): Promise<DashboardData> {
+  const now = Date.now();
+  if (dashboardCache && dashboardCache.expiresAt > now) {
+    return dashboardCache.data;
+  }
+
+  if (!dashboardCachePromise) {
+    dashboardCachePromise = loadDashboardData().then((data) => {
+      dashboardCache = { data, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS };
+      dashboardCachePromise = null;
+      return data;
+    }).catch((error) => {
+      dashboardCachePromise = null;
+      throw error;
+    });
+  }
+
+  return dashboardCachePromise;
 }

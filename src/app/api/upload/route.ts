@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearDashboardDataCache } from "@/lib/data";
 import { periodFromFileName } from "@/lib/date-filename";
 import { parseNaverReport } from "@/lib/parse/naver-report";
 
@@ -206,6 +207,8 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+
+  clearDashboardDataCache();
 
   return NextResponse.json({
     ok: true,

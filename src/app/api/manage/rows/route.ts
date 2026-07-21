@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearDashboardDataCache } from "@/lib/data";
 import { isCategorySlug } from "@/lib/categories";
 
 export const runtime = "nodejs";
@@ -86,6 +87,8 @@ export async function PATCH(req: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  clearDashboardDataCache();
+
   return NextResponse.json({ ok: true });
 }
 
@@ -100,5 +103,7 @@ export async function DELETE(req: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  clearDashboardDataCache();
+
   return NextResponse.json({ ok: true });
 }

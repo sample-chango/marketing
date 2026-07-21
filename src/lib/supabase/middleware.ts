@@ -41,7 +41,7 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute = isLoginRoute || isSignupRoute || isAuthRoute;
 
   // Public pages must not wait on Supabase auth. Stale browser cookies can make
-  // getUser hang in Vercel middleware and surface as MIDDLEWARE_INVOCATION_TIMEOUT.
+  // auth validation hang in Vercel middleware and surface as MIDDLEWARE_INVOCATION_TIMEOUT.
   if (isPublicRoute) {
     return NextResponse.next({ request });
   }
@@ -71,8 +71,20 @@ export async function updateSession(request: NextRequest) {
 
   let user = null;
   try {
-    const result = await withTimeout(supabase.auth.getUser(), AUTH_TIMEOUT_MS);
-    user = result.data.user;
+    const result = await withTimeout(supabase.auth.getClaims(), AUTH_TIMEOUT_MS);
+    if (result.error) {
+      return redirectToLogin(request);
+    }
+
+    const claims = result.data?.claims as
+      | { email?: string; app_metadata?: Record<string, unknown> }
+      | undefined;
+    if (claims) {
+      user = {
+        email: claims.email,
+        app_metadata: claims.app_metadata ?? {},
+      };
+    }
   } catch {
     return redirectToLogin(request);
   }

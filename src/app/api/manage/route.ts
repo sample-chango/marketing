@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearDashboardDataCache } from "@/lib/data";
 
 export const runtime = "nodejs";
 
@@ -115,6 +116,8 @@ export async function DELETE(req: Request) {
     .delete()
     .eq("period_start", start)
     .eq("period_end", end);
+
+  clearDashboardDataCache();
 
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearDashboardDataCache } from "@/lib/data";
 
 export const runtime = "nodejs";
 
@@ -65,6 +66,8 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+
+  clearDashboardDataCache();
 
   return NextResponse.json({ ok: true, dailyBudget: amount });
 }
