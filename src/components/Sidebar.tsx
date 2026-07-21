@@ -20,12 +20,6 @@ const ICON = {
       fill="none"
     />
   ),
-  glossary: (
-    <>
-      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" />
-      <path d="M8 7h8M8 11h6M6.5 19H20" />
-    </>
-  ),
   budget: (
     <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
   ),
@@ -54,21 +48,6 @@ const NAV: NavItem[] = [
     icon: (
       <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-current">
         {ICON.upload}
-      </svg>
-    ),
-  },
-  {
-    href: "/glossary",
-    label: "마케팅 용어사전",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-5 w-5 fill-none stroke-current"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {ICON.glossary}
       </svg>
     ),
   },
@@ -108,7 +87,6 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     const timer = window.setTimeout(() => {
       router.prefetch("/");
       router.prefetch("/upload");
-      router.prefetch("/glossary");
       if (isAdmin) router.prefetch("/admin/signups");
     }, 400);
 
