@@ -124,7 +124,10 @@ const periodKey = (r: MetricRow) => `${r.period_start}~${r.period_end}`;
 /** 종합 대시보드 데이터 — 전체 행 + 기간 목록 + 예산 */
 export async function getDashboardData(): Promise<DashboardData> {
   const configured = isSupabaseConfigured();
-  const rows = await fetchRows();
+  const [rows, dailyBudget] = await Promise.all([
+    fetchRows(),
+    fetchDailyBudget(),
+  ]);
 
   const periodKeys = [...new Set(rows.map(periodKey))].sort((a, b) => {
     const [as, ae] = a.split("~");
@@ -135,8 +138,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     const [start, end] = key.split("~");
     return { key, start, end };
   });
-
-  const dailyBudget = await fetchDailyBudget();
 
   return {
     configured,

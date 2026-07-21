@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useChangeAnalysis } from "@/components/AppShell";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
@@ -100,51 +99,22 @@ const itemIdle =
   "border border-transparent text-[#EEF2F7] hover:border-[#667384] hover:bg-[#3D4A5A] hover:text-white";
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { showChange, setShowChange } = useChangeAnalysis();
   const navItems = isAdmin ? [...NAV, ...ADMIN_NAV] : NAV;
-  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
-  useEffect(() => {
-    router.prefetch("/");
-    router.prefetch("/upload");
-    router.prefetch("/glossary");
-    if (isAdmin) router.prefetch("/admin/signups");
-  }, [isAdmin, router]);
-
-  useEffect(() => {
-    if (!pendingNav) return;
-    if (pendingNav === "change") {
-      if (pathname === "/" && showChange) setPendingNav(null);
-      return;
-    }
-    if (pathname === pendingNav) setPendingNav(null);
-  }, [pathname, pendingNav, showChange]);
-
-  const activateLink = (href: string) => {
-    setPendingNav(href);
-    if (href === "/") setShowChange(false);
-  };
-
-  const onChangeClick = () => {
-    setPendingNav("change");
-    setShowChange(true);
-    if (pathname !== "/") {
-      router.push("/");
-    }
+  const activatePageLink = () => {
+    setShowChange(false);
   };
 
   const renderNavItem = (item: NavItem) => {
-    const active = pendingNav
-      ? pendingNav === item.href
-      : item.href === "/"
-        ? pathname === "/" && !showChange
-        : pathname === item.href;
+    const active = item.href === "/"
+      ? pathname === "/" && !showChange
+      : pathname === item.href;
     return (
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => activateLink(item.href)}
+        onClick={activatePageLink}
         className={`${itemBase} ${active ? itemActive : itemIdle}`}
       >
         {item.icon}
@@ -167,14 +137,10 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.slice(0, 1).map(renderNavItem)}
 
-        <button
-          type="button"
-          onClick={onChangeClick}
-          className={`${itemBase} w-full ${
-            pendingNav === "change" || (!pendingNav && showChange && pathname === "/")
-              ? itemActive
-              : itemIdle
-          }`}
+        <Link
+          href="/"
+          onClick={() => setShowChange(true)}
+          className={`${itemBase} w-full ${showChange ? itemActive : itemIdle}`}
         >
           <svg
             viewBox="0 0 24 24"
@@ -186,7 +152,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
             <path d="M3 17l6-6 4 4 8-8M21 7h-5M21 7v5" />
           </svg>
           변화 분석
-        </button>
+        </Link>
 
         {navItems.slice(1).map(renderNavItem)}
       </nav>

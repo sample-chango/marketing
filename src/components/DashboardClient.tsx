@@ -146,14 +146,14 @@ const EXPLANATION_TONE_META: Record<
   }
 > = {
   good: {
-    label: "힘 보탤 제품",
+    label: "비중 키울 제품",
     badge: "광고비 이동 후보",
     cardClass: "border-emerald-200 bg-emerald-50",
     labelClass: "text-emerald-700",
     dotClass: "bg-emerald-500",
   },
   danger: {
-    label: "비용 줄일 제품",
+    label: "비중 줄일 제품",
     badge: "광고비 회수 후보",
     cardClass: "border-rose-200 bg-rose-50",
     labelClass: "text-rose-700",
@@ -185,7 +185,7 @@ const ACTION_TITLE_SUFFIXES = [
   "광고비 효율 점검",
   "전환 회복 필요",
   "ROAS 하락 점검",
-  "비용 줄일 후보",
+  "비중 줄일 후보",
 ];
 
 function actionDisplayParts(item: ComparisonExplanation) {
@@ -314,7 +314,7 @@ function buildComparisonExplanations(
         return {
           cause: "노출이 줄면서 매출도 같이 줄었지만 CVR/ROAS는 크게 무너지지 않았습니다. 상품 효율보다 노출량 부족에 가까운 흐름입니다.",
           focus: "입찰가(광고비) 소폭 상향, 노출 회복 후 ROAS 유지 여부",
-          action: "입찰가(광고비)를 바로 크게 올리지 말고 10~15%만 올려 테스트하세요. 효율이 유지될 때만 비용 줄일 제품은 낮추고 이 제품은 올리는 방식으로 옮기세요.",
+          action: "입찰가(광고비)를 바로 크게 올리지 말고 10~15%만 올려 테스트하세요. 효율이 유지될 때만 비중 줄일 제품은 낮추고 이 제품은 올리는 방식으로 옮기세요.",
         };
       }
 
@@ -644,10 +644,10 @@ function buildComparisonExplanations(
             body: `직전 기간보다 전체 과거와 최근 7일 흐름을 기준으로 봤을 때, 다른 제품을 낮춘 만큼 올려볼 만한 제품입니다.`,
             details: baseDetails,
             action: currentVsHistoryRevenue != null && currentVsHistoryRevenue >= 0.15
-              ? "전체 과거 하루 평균보다 매출이 올라온 상태입니다. 총예산은 늘리지 말고, 비용 줄일 제품은 낮추고 이 제품은 10~20% 올려보세요."
+              ? "전체 과거 하루 평균보다 매출이 올라온 상태입니다. 총예산은 늘리지 말고, 비중 줄일 제품은 낮추고 이 제품은 10~20% 올려보세요."
               : exposureNeedsHelp
                 ? "성과 흐름은 좋은데 노출이 약합니다. 입찰가(광고비)를 5~10%만 올려 노출 회복을 테스트하세요."
-                : "지금은 유지하세요. 비용 줄일 제품이 있을 때만 이 제품을 소폭 올려보세요.",
+                : "지금은 유지하세요. 비중 줄일 제품이 있을 때만 이 제품을 소폭 올려보세요.",
           },
         };
       }
@@ -701,11 +701,11 @@ function buildComparisonExplanations(
           item: {
             tone: "good",
             title: `${displayName} 광고비 재배분 후보`,
-            body: `지금 성과가 좋고 과거에도 팔렸습니다. 비용 줄일 제품을 낮춘 만큼 먼저 올려볼 제품입니다.`,
+            body: `지금 성과가 좋고 과거에도 팔렸습니다. 비중 줄일 제품을 낮춘 만큼 먼저 올려볼 제품입니다.`,
             details: [...baseDetails, "결론: 과거와 최근 흐름이 모두 괜찮아 다른 제품을 낮춘 만큼 올려볼 후보입니다."],
             action: exposureNeedsHelp
               ? "성과는 좋은데 노출이 줄었습니다. 총예산은 늘리지 말고 비효율 제품을 낮춘 만큼 이 제품의 입찰가(광고비)를 5~10%만 올려보세요."
-              : "지금은 유지하고, 비용 줄일 제품을 낮춘 뒤 이 제품은 10~20% 범위에서만 올려보세요. 노출이 부족할 때만 조금 올리면 됩니다.",
+              : "지금은 유지하고, 비중 줄일 제품을 낮춘 뒤 이 제품은 10~20% 범위에서만 올려보세요. 노출이 부족할 때만 조금 올리면 됩니다.",
           },
         };
       }
@@ -720,7 +720,7 @@ function buildComparisonExplanations(
             details: baseDetails,
             action: exposureNeedsHelp
               ? "노출이 줄었습니다. 입찰가(광고비)를 5~10%만 올려보고, 광고효율이 떨어지면 멈추세요."
-              : "지금은 유지하고, 비용 줄일 제품을 낮춘 뒤 이 제품은 소폭만 올려보세요. 클릭만 늘고 구매가 안 늘면 다시 원래대로 돌리세요.",
+              : "지금은 유지하고, 비중 줄일 제품을 낮춘 뒤 이 제품은 소폭만 올려보세요. 클릭만 늘고 구매가 안 늘면 다시 원래대로 돌리세요.",
           },
         };
       }
@@ -730,7 +730,7 @@ function buildComparisonExplanations(
           score: cur.cost / 1000 + Math.max(0, minimumPoorRoas - cur.roas) + Math.abs(Math.min(rev ?? 0, 0)),
           item: {
             tone: "danger",
-            title: `${displayName} 비용 줄일 후보`,
+            title: `${displayName} 비중 줄일 후보`,
             body: `${cutReason} 지금은 이 제품의 입찰가(광고비)를 낮추고 더 잘 팔리는 제품을 올리는 편이 낫습니다.`,
             details: [
               ...baseDetails,
@@ -738,7 +738,7 @@ function buildComparisonExplanations(
                 ? "결론: 과거에는 잘 팔렸지만 최근에는 광고비가 구매로 잘 이어지지 않습니다. 회복 신호가 보일 때까지 광고비를 줄이는 쪽이 안전합니다."
                 : "결론: 과거에도 충분히 팔린 기록이 약하고, 현재도 광고비가 매출로 돌아오지 않습니다. 우선 줄이는 쪽이 안전합니다.",
             ],
-            action: "이 제품의 입찰가(광고비)를 10~20% 줄이세요. 낮춘 만큼 위의 힘 보탤 제품을 먼저 올리세요.",
+            action: "이 제품의 입찰가(광고비)를 10~20% 줄이세요. 낮춘 만큼 위의 비중 키울 제품을 먼저 올리세요.",
           },
         };
       }
@@ -776,10 +776,10 @@ function buildComparisonExplanations(
           score: extraCost / 2000 + cost + Math.abs(Math.min(rev ?? 0, 0)) + Math.abs(Math.min(roasDrop, 0)),
           item: {
             tone: "danger",
-            title: `${displayName} 비용 줄일 후보`,
+            title: `${displayName} 비중 줄일 후보`,
             body: `광고비가 늘었지만 매출은 따라오지 않았습니다. 광고비를 줄이는 쪽이 좋습니다.`,
             details: [...baseDetails, `비용 증가: 광고비가 ${fmtWon(extraCost)} 더 늘었습니다.`],
-            action: "입찰가(광고비)를 10~20% 낮추고, 구매 없는 검색어는 제외하세요. 낮춘 만큼 힘 보탤 제품을 올리세요.",
+            action: "입찰가(광고비)를 10~20% 낮추고, 구매 없는 검색어는 제외하세요. 낮춘 만큼 비중 키울 제품을 올리세요.",
           },
         };
       }
