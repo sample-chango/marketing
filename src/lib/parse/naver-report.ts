@@ -24,6 +24,7 @@ export interface ParsedRow {
   impressions: number;
   clicks: number;
   cost: number;
+  currentBid: number | null;
   conversions: number;
   conversionValue: number;
   qualityScore: number | null;
@@ -47,6 +48,7 @@ type CanonicalField =
   | "impressions"
   | "clicks"
   | "cost"
+  | "currentBid"
   | "conversions"
   | "conversionValue"
   | "qualityScore";
@@ -108,6 +110,9 @@ function matchField(rawHeader: string): CanonicalField | null {
     !h.includes("당")
   )
     return "clicks";
+
+  // 현재 입찰가(D열). 광고비/총비용과 분리해서 저장합니다.
+  if (h.includes("입찰") && !h.includes("전략")) return "currentBid";
 
   // 비용/광고비 (클릭비용 제외)
   if (h.includes("총비용") || h.includes("광고비") || (h.includes("비용") && !h.includes("클릭") && !h.includes("전환")))
@@ -222,6 +227,13 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
 
   const headers = matrix[headerIdx] ?? [];
   const { map, detected } = buildHeaderMap(headers);
+  if (!map.has("currentBid") && headers.length > 3) {
+    const dHeader = String(headers[3] ?? "");
+    if (dHeader.includes("입찰")) {
+      map.set("currentBid", 3);
+      detected.currentBid = dHeader;
+    }
+  }
 
   if (!map.has("impressions") && !map.has("clicks")) {
     warnings.push(
@@ -245,6 +257,7 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
     impressions: Math.round(toNumber(get(cells, "impressions"))),
     clicks: Math.round(toNumber(get(cells, "clicks"))),
     cost: toNumber(get(cells, "cost")),
+    currentBid: toNumber(get(cells, "currentBid")) || null,
     conversions: toNumber(get(cells, "conversions")),
     conversionValue: toNumber(get(cells, "conversionValue")),
   });
@@ -319,6 +332,7 @@ function rowsFromMatrix(matrix: string[][]): ParseResult {
       impressions,
       clicks,
       cost: toNumber(get(cells, "cost")),
+      currentBid: toNumber(get(cells, "currentBid")) || null,
       conversions: toNumber(get(cells, "conversions")),
       conversionValue: toNumber(get(cells, "conversionValue")),
       qualityScore,
@@ -354,6 +368,7 @@ function rowsFromWeekdayMatrix(
       impressions: number;
       clicks: number;
       cost: number;
+      currentBid: number | null;
       conversions: number;
       conversionValue: number;
     };

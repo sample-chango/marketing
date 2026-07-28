@@ -241,6 +241,58 @@ const metricVsAverage = (
     ? `${label} = ${fmt(value)} / 전체 평균 ${fmt(average)} / 평균보다 ${value >= average ? "높음" : "낮음"}`
     : `${label} = ${fmt(value)} / 전체 평균 비교 불가`;
 
+const latestDateOf = (rows: MetricRow[]) =>
+  rows.reduce<string | null>((latest, row) => {
+    const date = rowDate(row);
+    return latest == null || date > latest ? date : latest;
+  }, null);
+
+const currentBidOf = (rows: MetricRow[], targetDate: string | null = latestDateOf(rows)) => {
+  const bids = rows
+    .filter((row) => targetDate != null && rowDate(row) === targetDate)
+    .map((row) => row.currentBid)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+  if (bids.length === 0) return null;
+  return Math.round(bids.reduce((sum, value) => sum + value, 0) / bids.length);
+};
+
+const fmtBidWon = (value: number) => `${Math.round(value).toLocaleString("ko-KR")}원`;
+
+const fmtBidRange = (low: number, high: number) =>
+  low === high ? fmtBidWon(low) : `${Math.round(low).toLocaleString("ko-KR")}~${fmtBidWon(high)}`;
+
+const bidChangeText = (
+  bid: number | null,
+  direction: "up" | "down",
+  minPct: number,
+  maxPct = minPct,
+) => {
+  if (bid == null || bid <= 0) {
+    return "입찰가 기준: 선택기간 마지막 날 입찰가 데이터가 없어 현재가/추천가 계산 불가입니다.";
+  }
+
+  const lowPct = Math.min(minPct, maxPct);
+  const highPct = Math.max(minPct, maxPct);
+  const lowAmount = Math.round(bid * lowPct);
+  const highAmount = Math.round(bid * highPct);
+  const nextLow = direction === "down" ? Math.max(0, bid - highAmount) : bid + lowAmount;
+  const nextHigh = direction === "down" ? Math.max(0, bid - lowAmount) : bid + highAmount;
+  const pctText =
+    lowPct === highPct
+      ? `${Math.round(lowPct * 100)}%`
+      : `${Math.round(lowPct * 100)}~${Math.round(highPct * 100)}%`;
+  const mark = direction === "down" ? "▼" : "▲";
+
+  return `입찰가 기준: 현재 입찰가 ${fmtBidWon(bid)} → ${fmtBidRange(nextLow, nextHigh)} (${pctText}${mark}) 변경 추천`;
+};
+
+const withBidChange = (
+  action: string,
+  bid: number | null,
+  direction: "up" | "down",
+  minPct: number,
+  maxPct = minPct,
+) => `${action}\n${bidChangeText(bid, direction, minPct, maxPct)}`;
 
 function buildComparisonExplanations(
   base: DerivedMetrics,
@@ -313,70 +365,70 @@ function buildComparisonExplanations(
       if (efficiencyHeld) {
         return {
           cause: "노출이 줄면서 매출도 같이 줄었지만 CVR/ROAS는 크게 무너지지 않았습니다. 상품 효율보다 노출량 부족에 가까운 흐름입니다.",
-          focus: "입찰가(광고비) 소폭 상향, 노출 회복 후 ROAS 유지 여부",
-          action: "입찰가(광고비)를 바로 크게 올리지 말고 10~15%만 올려 테스트하세요. 효율이 유지될 때만 비중 줄일 제품은 낮추고 이 제품은 올리는 방식으로 옮기세요.",
+          focus: "입찰가 소폭 상향, 노출 회복 후 ROAS 유지 여부",
+          action: "입찰가를 바로 크게 올리지 말고 10~15%만 올려 테스트하세요. 효율이 유지될 때만 비중 줄일 제품은 낮추고 이 제품은 올리는 방식으로 옮기세요.",
         };
       }
 
       return {
         cause: "노출도 줄고 매출도 줄었는데 CVR/ROAS도 방어되지 않았습니다. 억지로 노출을 회복시키기보다 광고비를 회수하는 쪽이 안전합니다.",
-        focus: "입찰가(광고비) 하향, 더 효율 좋은 제품으로 이동",
-        action: "이 제품은 입찰가(광고비)를 10~20% 낮추세요. 낮춘 만큼 같은 카테고리에서 ROAS 또는 CVR이 유지되는 제품 쪽을 올리는 것이 좋습니다. 다음에도 노출과 매출이 같이 빠지면 이동 대상에서 제외하세요.",
+        focus: "입찰가 하향, 더 효율 좋은 제품으로 이동",
+        action: "이 제품은 입찰가를 10~20% 낮추세요. 낮춘 만큼 같은 카테고리에서 ROAS 또는 CVR이 유지되는 제품 쪽을 올리는 것이 좋습니다. 다음에도 노출과 매출이 같이 빠지면 이동 대상에서 제외하세요.",
       };
     }
 
     if (cost != null && cost >= 0.2 && (revenue == null || revenue <= 0.05)) {
       return {
         cause: "광고비가 늘었는데 매출이 거의 따라오지 않았습니다. 돈을 더 써도 성과가 붙지 않는 비효율 구간입니다.",
-        focus: "입찰가(광고비) 하향, 전환 없는 검색어 제외, 효율 제품으로 이동",
-        action: "입찰가(광고비)를 10~20% 낮추고, 비용은 발생했지만 구매가 없는 검색어를 제외하세요. 이 제품을 올리기보다 같은 기간에 ROAS가 유지된 제품을 올리는 판단이 맞습니다.",
+        focus: "입찰가 하향, 전환 없는 검색어 제외, 효율 제품으로 이동",
+        action: "입찰가를 10~20% 낮추고, 비용은 발생했지만 구매가 없는 검색어를 제외하세요. 이 제품을 올리기보다 같은 기간에 ROAS가 유지된 제품을 올리는 판단이 맞습니다.",
       };
     }
 
     if (clicks != null && clicks >= 0.2 && cvr != null && cvr <= -0.2) {
       return {
         cause: "클릭은 늘었지만 CVR이 떨어졌습니다. 관심 없는 클릭이 늘어난 상태라 클릭 수만 보고 좋아졌다고 판단하면 안 됩니다.",
-        focus: "입찰가(광고비) 하향, 넓은 검색어 축소, 구매 없는 클릭 차단",
-        action: "클릭을 늘린 검색어 중 구매가 없는 항목을 먼저 줄이세요. 입찰가(광고비)는 10~15% 낮추고, ROAS가 유지되는 검색어만 남겨야 합니다. 이 상태에서 올리면 클릭은 더 늘어도 매출 효율은 더 나빠질 수 있습니다.",
+        focus: "입찰가 하향, 넓은 검색어 축소, 구매 없는 클릭 차단",
+        action: "클릭을 늘린 검색어 중 구매가 없는 항목을 먼저 줄이세요. 입찰가는 10~15% 낮추고, ROAS가 유지되는 검색어만 남겨야 합니다. 이 상태에서 올리면 클릭은 더 늘어도 매출 효율은 더 나빠질 수 있습니다.",
       };
     }
 
     if (ctr != null && ctr >= 0.15 && cvr != null && cvr <= -0.2 && (roas == null || roas <= 0.05)) {
       return {
         cause: "CTR은 좋아졌지만 CVR이 떨어져 의미 없는 클릭이 늘어난 흐름입니다. 노출/클릭보다 구매 전환 품질을 먼저 봐야 합니다.",
-        focus: "입찰가(광고비) 유지 또는 하향, 검색어 정리, 구매 없는 유입 축소",
-        action: "입찰가(광고비)를 올리지 말고 유지하거나 10% 낮추세요. 클릭은 많지만 구매가 없는 검색어를 제외하고, CVR과 ROAS가 같이 유지되는 제품은 우선 올리세요.",
+        focus: "입찰가 유지 또는 하향, 검색어 정리, 구매 없는 유입 축소",
+        action: "입찰가를 올리지 말고 유지하거나 10% 낮추세요. 클릭은 많지만 구매가 없는 검색어를 제외하고, CVR과 ROAS가 같이 유지되는 제품은 우선 올리세요.",
       };
     }
 
     if (conv != null && conv <= -0.35) {
       return {
         cause: "전환수가 의미 있게 줄었습니다. 매출 하락 전 단계일 수 있으므로 광고비를 무작정 유지하면 위험합니다.",
-        focus: "전환 발생 검색어 보호, 비전환 검색어 축소, 입찰가(광고비) 재조정",
-        action: "전환이 발생했던 검색어와 광고그룹은 유지하고, 전환 없는 검색어의 입찰가(광고비)를 낮추세요. 전환이 줄었는데도 비용이 유지되거나 늘었다면 10~20% 낮춰 효율 제품 쪽을 올리는 것이 좋습니다.",
+        focus: "전환 발생 검색어 보호, 비전환 검색어 축소, 입찰가 재조정",
+        action: "전환이 발생했던 검색어와 광고그룹은 유지하고, 전환 없는 검색어의 입찰가를 낮추세요. 전환이 줄었는데도 비용이 유지되거나 늘었다면 10~20% 낮춰 효율 제품 쪽을 올리는 것이 좋습니다.",
       };
     }
 
     if (roas != null && roas <= -0.2) {
       return {
         cause: "ROAS가 떨어졌습니다. 같은 돈을 써도 매출이 덜 나오는 상태라 입찰 확장보다 비용 방어가 먼저입니다.",
-        focus: "입찰가(광고비) 하향, 고비용 저매출 검색어 정리, 효율 제품으로 이동",
-        action: "비용 상위 검색어를 매출 발생 여부로 나눠 보세요. 비용은 큰데 매출이 낮은 검색어는 입찰가(광고비)를 낮추거나 제외하고, 전환당 매출이 높은 제품/키워드 쪽을 올리세요.",
+        focus: "입찰가 하향, 고비용 저매출 검색어 정리, 효율 제품으로 이동",
+        action: "비용 상위 검색어를 매출 발생 여부로 나눠 보세요. 비용은 큰데 매출이 낮은 검색어는 입찰가를 낮추거나 제외하고, 전환당 매출이 높은 제품/키워드 쪽을 올리세요.",
       };
     }
 
     if (impressions != null && impressions <= -0.15 && (roas == null || roas >= 0) && (cvr == null || cvr >= 0)) {
       return {
         cause: "노출은 줄었지만 CVR/ROAS는 유지되고 있습니다. 성과가 나쁜 게 아니라 보여지는 양이 줄어든 상태일 수 있습니다.",
-        focus: "입찰가(광고비) 소폭 상향 테스트",
-        action: "입찰가(광고비)를 10% 정도만 올려 노출 회복을 테스트하세요. 총예산은 늘리지 말고, 효율이 유지될 때만 비효율 제품을 낮추고 이 제품을 올리면 됩니다.",
+        focus: "입찰가 소폭 상향 테스트",
+        action: "입찰가를 10% 정도만 올려 노출 회복을 테스트하세요. 총예산은 늘리지 말고, 효율이 유지될 때만 비효율 제품을 낮추고 이 제품을 올리면 됩니다.",
       };
     }
 
     return {
       cause: "한 지표만으로 판단하기 어렵고, 노출·클릭·전환·ROAS가 섞여 움직이는 복합 구간입니다.",
       focus: "광고비 상위 검색어, 전환 발생 여부, ROAS 유지 여부",
-      action: "입찰가(광고비)를 크게 바꾸지 말고 비용 상위 검색어부터 전환 유무를 확인하세요. 전환 없는 검색어는 낮추고, ROAS가 유지되는 제품은 조금씩 올리는 방식이 안전합니다.",
+      action: "입찰가를 크게 바꾸지 말고 비용 상위 검색어부터 전환 유무를 확인하세요. 전환 없는 검색어는 낮추고, ROAS가 유지되는 제품은 조금씩 올리는 방식이 안전합니다.",
     };
   };
   const baseGroups = groupByName(baseRows);
@@ -504,6 +556,7 @@ function buildComparisonExplanations(
       })
       .filter((item): item is ProductDriver => item != null)
       .sort((a, b) => b.score - a.score);
+  const currentLatestDate = latestDateOf(currentRows);
   const productInsights = names
     .map((name): ScoredExplanation | null => {
       const prevRows = baseGroups.get(name) ?? [];
@@ -512,6 +565,7 @@ function buildComparisonExplanations(
 
       const prev = agg(prevRows);
       const cur = agg(curRows);
+      const currentBid = currentBidOf(curRows, currentLatestDate);
       const category = categoryName(curRows[0]?.category ?? prevRows[0]?.category ?? "all");
       const displayName = truncName(name, 44);
       const rev = ratioDelta(cur.conversionValue, prev.conversionValue);
@@ -575,7 +629,7 @@ function buildComparisonExplanations(
         (currentVsHistoryRevenue == null || currentVsHistoryRevenue >= -0.2) &&
         (currentVsRecentRevenue == null || currentVsRecentRevenue >= -0.35);
       const baseDetails = [
-        `현재 수치: 광고비 ${fmtWon(cur.cost)} | 매출 ${fmtWon(cur.conversionValue)} | 구매 ${fmtInt(cur.conversions)}건 | ROAS ${fmtRoas(cur.roas)} | CTR ${fmtPct(cur.ctr)} | CVR ${fmtPct(cur.cvr)}`,
+        `현재 수치: 마지막 날 평균 입찰가 ${currentBid == null ? "없음" : fmtWon(currentBid)} | 광고비 ${fmtWon(cur.cost)} | 매출 ${fmtWon(cur.conversionValue)} | 구매 ${fmtInt(cur.conversions)}건 | ROAS ${fmtRoas(cur.roas)} | CTR ${fmtPct(cur.ctr)} | CVR ${fmtPct(cur.cvr)}`,
         `흐름: 선택기간 일평균 매출 ${fmtWon(Math.round(currentDailyRevenue))} | 전체 과거 일평균 매출 ${fmtWon(Math.round(historyDailyRevenue))} | 최근 ${recentHistoryDays}일 일평균 매출 ${fmtWon(Math.round(recentDailyRevenue))}`,
         `세부 정리: ${metricVsAverage("ROAS", cur.roas, current.roas, fmtRoas)} | ${metricVsAverage("CTR", cur.ctr, current.ctr, fmtPct)} | ${metricVsAverage("CVR", cur.cvr, current.cvr, fmtPct)}`,
       ];
@@ -630,7 +684,7 @@ function buildComparisonExplanations(
               ...baseDetails,
               "결론: 과거와 최근 흐름이 아직 살아 있어 지금은 줄이지 말고 한 번 더 확인하는 쪽이 안전합니다.",
             ],
-            action: "지금은 입찰가(광고비)를 유지하세요. 다음 업로드에서도 전체 과거 대비 매출과 광고효율이 계속 낮으면 그때 10%만 줄이세요.",
+            action: withBidChange("지금은 입찰가를 유지하세요. 다음 업로드에서도 전체 과거 대비 매출과 광고효율이 계속 낮으면 그때 10%만 줄이세요.", currentBid, "down", 0.1),
           },
         };
       }
@@ -644,9 +698,9 @@ function buildComparisonExplanations(
             body: `직전 기간보다 전체 과거와 최근 7일 흐름을 기준으로 봤을 때, 다른 제품을 낮춘 만큼 올려볼 만한 제품입니다.`,
             details: baseDetails,
             action: currentVsHistoryRevenue != null && currentVsHistoryRevenue >= 0.15
-              ? "전체 과거 하루 평균보다 매출이 올라온 상태입니다. 총예산은 늘리지 말고, 비중 줄일 제품은 낮추고 이 제품은 10~20% 올려보세요."
+              ? withBidChange("전체 과거 하루 평균보다 매출이 올라온 상태입니다. 총예산은 늘리지 말고, 비중 줄일 제품은 낮추고 이 제품은 10~20% 올려보세요.", currentBid, "up", 0.1, 0.2)
               : exposureNeedsHelp
-                ? "성과 흐름은 좋은데 노출이 약합니다. 입찰가(광고비)를 5~10%만 올려 노출 회복을 테스트하세요."
+                ? withBidChange("성과 흐름은 좋은데 노출이 약합니다. 입찰가를 5~10%만 올려 노출 회복을 테스트하세요.", currentBid, "up", 0.05, 0.1)
                 : "지금은 유지하세요. 비중 줄일 제품이 있을 때만 이 제품을 소폭 올려보세요.",
           },
         };
@@ -668,7 +722,7 @@ function buildComparisonExplanations(
             title: `${displayName} 회복 테스트 후보`,
             body: `매출은 줄었지만 효율은 아직 좋습니다. 바로 줄이지 말고 회복 테스트를 해볼 제품입니다.`,
             details: baseDetails,
-            action: "입찰가(광고비)를 5~10%만 올려 하루 테스트하세요. 효율이 유지될 때만 비효율 제품은 낮추고 이 제품은 올리는 방식으로 옮기고, 떨어지면 바로 원래대로 돌리세요.",
+            action: withBidChange("입찰가를 5~10%만 올려 하루 테스트하세요. 효율이 유지될 때만 비효율 제품은 낮추고 이 제품은 올리는 방식으로 옮기고, 떨어지면 바로 원래대로 돌리세요.", currentBid, "up", 0.05, 0.1),
           },
         };
       }
@@ -682,8 +736,8 @@ function buildComparisonExplanations(
             body: `매출은 줄었지만 광고효율과 구매는 살아 있습니다. 하루만 보고 광고비를 회수하기엔 아까운 제품입니다.`,
             details: baseDetails,
             action: exposureNeedsHelp
-              ? "노출도 줄었습니다. 입찰가(광고비)를 5~10%만 올려 보고, 효율이 유지될 때만 비효율 제품을 낮추고 이 제품을 올리세요."
-              : "노출은 크게 문제 없습니다. 지금은 입찰가(광고비)를 유지하고, 다음에도 매출이 빠지면 낮추세요.",
+              ? withBidChange("노출도 줄었습니다. 입찰가를 5~10%만 올려 보고, 효율이 유지될 때만 비효율 제품을 낮추고 이 제품을 올리세요.", currentBid, "up", 0.05, 0.1)
+              : "노출은 크게 문제 없습니다. 지금은 입찰가를 유지하고, 다음에도 매출이 빠지면 낮추세요.",
           },
         };
       }
@@ -704,8 +758,8 @@ function buildComparisonExplanations(
             body: `지금 성과가 좋고 과거에도 팔렸습니다. 비중 줄일 제품을 낮춘 만큼 먼저 올려볼 제품입니다.`,
             details: [...baseDetails, "결론: 과거와 최근 흐름이 모두 괜찮아 다른 제품을 낮춘 만큼 올려볼 후보입니다."],
             action: exposureNeedsHelp
-              ? "성과는 좋은데 노출이 줄었습니다. 총예산은 늘리지 말고 비효율 제품을 낮춘 만큼 이 제품의 입찰가(광고비)를 5~10%만 올려보세요."
-              : "지금은 유지하고, 비중 줄일 제품을 낮춘 뒤 이 제품은 10~20% 범위에서만 올려보세요. 노출이 부족할 때만 조금 올리면 됩니다.",
+              ? withBidChange("성과는 좋은데 노출이 줄었습니다. 총예산은 늘리지 말고 비효율 제품을 낮춘 만큼 이 제품의 입찰가를 5~10%만 올려보세요.", currentBid, "up", 0.05, 0.1)
+              : withBidChange("지금은 유지하고, 비중 줄일 제품을 낮춘 뒤 이 제품은 10~20% 범위에서만 올려보세요. 노출이 부족할 때만 조금 올리면 됩니다.", currentBid, "up", 0.1, 0.2),
           },
         };
       }
@@ -719,8 +773,8 @@ function buildComparisonExplanations(
             body: `현재 효율도 좋고 과거 성과도 있습니다. 다른 제품을 낮춘 만큼 올려볼 수 있는 제품입니다.`,
             details: baseDetails,
             action: exposureNeedsHelp
-              ? "노출이 줄었습니다. 입찰가(광고비)를 5~10%만 올려보고, 광고효율이 떨어지면 멈추세요."
-              : "지금은 유지하고, 비중 줄일 제품을 낮춘 뒤 이 제품은 소폭만 올려보세요. 클릭만 늘고 구매가 안 늘면 다시 원래대로 돌리세요.",
+              ? withBidChange("노출이 줄었습니다. 입찰가를 5~10%만 올려보고, 광고효율이 떨어지면 멈추세요.", currentBid, "up", 0.05, 0.1)
+              : withBidChange("지금은 유지하고, 비중 줄일 제품을 낮춘 뒤 이 제품은 5%만 올려보세요. 클릭만 늘고 구매가 안 늘면 다시 원래대로 돌리세요.", currentBid, "up", 0.05),
           },
         };
       }
@@ -731,14 +785,14 @@ function buildComparisonExplanations(
           item: {
             tone: "danger",
             title: `${displayName} 비중 줄일 후보`,
-            body: `${cutReason} 지금은 이 제품의 입찰가(광고비)를 낮추고 더 잘 팔리는 제품을 올리는 편이 낫습니다.`,
+            body: `${cutReason} 지금은 이 제품의 입찰가를 낮추고 더 잘 팔리는 제품을 올리는 편이 낫습니다.`,
             details: [
               ...baseDetails,
               history.hasStrongHistory
                 ? "결론: 과거에는 잘 팔렸지만 최근에는 광고비가 구매로 잘 이어지지 않습니다. 회복 신호가 보일 때까지 광고비를 줄이는 쪽이 안전합니다."
                 : "결론: 과거에도 충분히 팔린 기록이 약하고, 현재도 광고비가 매출로 돌아오지 않습니다. 우선 줄이는 쪽이 안전합니다.",
             ],
-            action: "이 제품의 입찰가(광고비)를 10~20% 줄이세요. 낮춘 만큼 위의 비중 키울 제품을 먼저 올리세요.",
+            action: withBidChange("이 제품의 입찰가를 10~20% 줄이세요. 낮춘 만큼 위의 비중 키울 제품을 먼저 올리세요.", currentBid, "down", 0.1, 0.2),
           },
         };
       }
@@ -751,7 +805,7 @@ function buildComparisonExplanations(
             title: `${displayName} 신규 집행 비용 점검`,
             body: `돈은 쓰고 있는데 아직 매출이 없습니다. 테스트가 아니라면 빠르게 줄여야 합니다.`,
             details: baseDetails,
-            action: "하루만 더 보고, 클릭은 있는데 구매가 없으면 입찰가(광고비)를 낮추세요.",
+            action: withBidChange("하루만 더 보고, 클릭은 있는데 구매가 없으면 입찰가를 10% 낮추세요.", currentBid, "down", 0.1),
           },
         };
       }
@@ -766,7 +820,7 @@ function buildComparisonExplanations(
             details: baseDetails,
             action: cur.cost < 1000 && cur.clicks <= 1
               ? "현재는 비용과 클릭이 거의 없어 바로 줄일 대상이라기보다, 노출/입찰 상태가 왜 약해졌는지 먼저 확인하세요."
-              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가(광고비)를 낮추세요.",
+              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가를 낮추세요.",
           },
         };
       }
@@ -779,7 +833,7 @@ function buildComparisonExplanations(
             title: `${displayName} 비중 줄일 후보`,
             body: `광고비가 늘었지만 매출은 따라오지 않았습니다. 광고비를 줄이는 쪽이 좋습니다.`,
             details: [...baseDetails, `비용 증가: 광고비가 ${fmtWon(extraCost)} 더 늘었습니다.`],
-            action: "입찰가(광고비)를 10~20% 낮추고, 구매 없는 검색어는 제외하세요. 낮춘 만큼 비중 키울 제품을 올리세요.",
+            action: withBidChange("입찰가를 10~20% 낮추고, 구매 없는 검색어는 제외하세요. 낮춘 만큼 비중 키울 제품을 올리세요.", currentBid, "down", 0.1, 0.2),
           },
         };
       }
@@ -794,7 +848,7 @@ function buildComparisonExplanations(
             details: baseDetails,
             action: cur.cost < 1000 && cur.clicks <= 1
               ? "현재는 비용과 클릭이 거의 없어 바로 줄일 대상이라기보다, 노출/입찰 상태가 왜 약해졌는지 먼저 확인하세요."
-              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가(광고비)를 낮추세요.",
+              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가를 낮추세요.",
           },
         };
       }
@@ -809,7 +863,7 @@ function buildComparisonExplanations(
             details: baseDetails,
             action: cur.cost < 1000 && cur.clicks <= 1
               ? "현재는 비용과 클릭이 거의 없어 바로 줄일 대상이라기보다, 노출/입찰 상태가 왜 약해졌는지 먼저 확인하세요."
-              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가(광고비)를 낮추세요.",
+              : "바로 감액 확정은 아닙니다. 구매 없는 검색어가 비용을 쓰는지 먼저 확인하고, 확인된 검색어만 입찰가를 낮추세요.",
           },
         };
       }
@@ -850,7 +904,7 @@ function buildComparisonExplanations(
             title: `${cur.label} 하락 원인: ${driverNames}`,
             body: `${cur.label} 전체 매출은 하락했지만, 문제는 카테고리 전체가 아니라 위 제품군 쪽에 몰려 있습니다.${goodContext}`,
             details: [signalLine(prev, cur.metrics), metricLine(prev, cur.metrics), flowLine(prev, cur.metrics), ...driverDetails],
-            action: `${driverNames}은 입찰가(광고비)를 먼저 낮추고, 비용만 쓰는 검색어를 제외하세요.${goodDrivers.length > 0 ? ` ${goodNames}은 성과가 확인된 제품이라 올릴 후보로 분리하세요.` : ""}`,
+            action: `${driverNames}은 입찰가를 먼저 낮추고, 비용만 쓰는 검색어를 제외하세요.${goodDrivers.length > 0 ? ` ${goodNames}은 성과가 확인된 제품이라 올릴 후보로 분리하세요.` : ""}`,
           },
         };
       }
@@ -976,10 +1030,12 @@ function ActionRecommendationPanel({
   title,
   subtitle,
   grouped,
+  bidDataReady,
 }: {
   title: string;
   subtitle: string;
   grouped: ExplanationGroup[];
+  bidDataReady: boolean;
 }) {
   return (
     <details className={CARD_CLASS} open>
@@ -991,6 +1047,14 @@ function ActionRecommendationPanel({
         <span aria-hidden="true" className="rounded-full bg-[#F6F8FB] px-3 py-1 text-xs font-semibold text-slate-500">⌄</span>
       </summary>
       <div className="space-y-4">
+        {!bidDataReady && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="text-sm font-bold text-amber-900">입찰가 계산 불가</div>
+            <p className="mt-1 text-sm leading-6 text-amber-800">
+              현재 선택기간 마지막 날에 입찰가 데이터가 없어 현재가와 추천가를 계산하지 못합니다. D열 현재 입찰가가 포함된 파일을 다시 업로드하면 마지막 날 평균 입찰가와 조정 후 금액이 표시됩니다.
+            </p>
+          </div>
+        )}
         {grouped.map((group) => (
           <section key={group.tone} className="space-y-2">
             <div className="flex items-center gap-2 px-1">
@@ -1031,9 +1095,19 @@ function ActionRecommendationPanel({
                             </div>
                             <div className="border-l-4 border-slate-300 pl-3">
                               <div className={`text-[11px] font-semibold ${toneMeta.labelClass}`}>바로 할 일</div>
-                              <p className="mt-1 text-sm font-bold leading-6 text-slate-900">
-                                {item.action}
-                              </p>
+                              <div className="mt-1 space-y-2">
+                                {item.action.split("\n").map((line, lineIndex) =>
+                                  lineIndex === 0 ? (
+                                    <p key={lineIndex} className="text-sm font-bold leading-6 text-slate-900">
+                                      {line}
+                                    </p>
+                                  ) : (
+                                    <p key={lineIndex} className="inline-flex max-w-full rounded-md bg-white/80 px-2.5 py-1.5 text-xs font-bold leading-5 text-slate-800 ring-1 ring-slate-200">
+                                      {line}
+                                    </p>
+                                  ),
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1336,6 +1410,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     data.rows,
   );
   const groupedDashboardExplanations = groupExplanations(dashboardActionExplanations);
+  const latestCurrentDate = latestDateOf(currentRows);
+  const hasCurrentBidData = currentRows.some(
+    (row) =>
+      latestCurrentDate != null &&
+      rowDate(row) === latestCurrentDate &&
+      typeof row.currentBid === "number" &&
+      Number.isFinite(row.currentBid) &&
+      row.currentBid > 0,
+  );
   const current: DerivedMetrics =
     cat === "all" ? o : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
   const rows =
@@ -1785,6 +1868,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         title="광고 조정 추천"
         subtitle={`${periodText} 기준 · 전체 과거 흐름과 최근 7일, 직전 기간 ${basePeriodText}를 함께 보고 줄일 광고비와 옮길 곳을 보여줍니다.`}
         grouped={groupedDashboardExplanations}
+        bidDataReady={hasCurrentBidData}
       />
       </div>
     </>

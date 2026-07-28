@@ -3,8 +3,24 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearDashboardDataCache } from "@/lib/data";
 import { periodFromFileName } from "@/lib/date-filename";
 import { parseNaverReport } from "@/lib/parse/naver-report";
+import {
+  CURRENT_BID_SETTINGS_KEY,
+  currentBidKey,
+  parseCurrentBidMap,
+  periodKeyFromCurrentBidKey,
+  serializeCurrentBidMap,
+} from "@/lib/current-bids";
 
 export const runtime = "nodejs";
+
+function isMissingCurrentBidColumnError(error: unknown): boolean {
+  const item = error as { code?: string; message?: string } | null | undefined;
+  const message = String(item?.message ?? "").toLowerCase();
+  return (
+    message.includes("current_bid") &&
+    (item?.code === "42703" || item?.code === "PGRST204" || message.includes("schema cache") || message.includes("does not exist"))
+  );
+}
 
 export async function POST(req: Request) {
   // 환경변수 확인
@@ -124,6 +140,7 @@ export async function POST(req: Request) {
           impressions: r.impressions,
           clicks: r.clicks,
           cost: r.cost,
+          current_bid: r.currentBid,
           conversions: r.conversions,
           conversion_value: r.conversionValue,
           quality_score: r.qualityScore,
@@ -143,6 +160,7 @@ export async function POST(req: Request) {
         impressions: r.impressions,
         clicks: r.clicks,
         cost: r.cost,
+        current_bid: r.currentBid,
         conversions: r.conversions,
         conversion_value: r.conversionValue,
         quality_score: r.qualityScore,
@@ -200,7 +218,18 @@ export async function POST(req: Request) {
   }
 
   const withUpload = records.map((r) => ({ ...r, upload_id: uploadRow.id }));
-  const { error: insErr } = await supabase.from("ad_metrics").insert(withUpload);
+  let bidColumnSkipped = false;
+  let { error: insErr } = await supabase.from("ad_metrics").insert(withUpload);
+  if (insErr && isMissingCurrentBidColumnError(insErr)) {
+    bidColumnSkipped = true;
+    const withoutBid = withUpload.map((record) => {
+      const next: Record<string, unknown> = { ...record };
+      delete next.current_bid;
+      return next;
+    });
+    const retry = await supabase.from("ad_metrics").insert(withoutBid);
+    insErr = retry.error;
+  }
   if (insErr) {
     return NextResponse.json(
       { error: "데이터 저장 실패: " + insErr.message },
@@ -208,8 +237,60 @@ export async function POST(req: Request) {
     );
   }
 
+  let bidSettingsError: string | null = null;
+  try {
+    const { data: existingBidSetting, error: bidReadError } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", CURRENT_BID_SETTINGS_KEY)
+      .maybeSingle();
+    if (bidReadError) throw bidReadError;
+
+    const bidMap = parseCurrentBidMap(
+      typeof existingBidSetting?.value === "string" ? existingBidSetting.value : null,
+    );
+    const uploadedPeriods = new Set(
+      records.map((record) => `${String(record.period_start ?? "")}~${String(record.period_end ?? "")}`),
+    );
+
+    for (const key of Object.keys(bidMap)) {
+      const periodKey = periodKeyFromCurrentBidKey(key);
+      if (periodKey != null && uploadedPeriods.has(periodKey)) delete bidMap[key];
+    }
+
+    for (const record of records) {
+      const bid = Number(record.current_bid);
+      if (!Number.isFinite(bid) || bid <= 0) continue;
+      bidMap[currentBidKey({
+        period_start: String(record.period_start ?? ""),
+        period_end: String(record.period_end ?? ""),
+        category: String(record.category ?? ""),
+        campaign: typeof record.campaign === "string" ? record.campaign : null,
+        ad_group: typeof record.ad_group === "string" ? record.ad_group : null,
+        keyword: typeof record.keyword === "string" ? record.keyword : null,
+      })] = bid;
+    }
+
+    const { error: bidWriteError } = await supabase
+      .from("settings")
+      .upsert(
+        {
+          key: CURRENT_BID_SETTINGS_KEY,
+          value: serializeCurrentBidMap(bidMap),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" },
+      );
+    if (bidWriteError) throw bidWriteError;
+  } catch (error) {
+    bidSettingsError = (error as Error).message;
+  }
+
   clearDashboardDataCache();
 
+  const responseWarnings = bidSettingsError
+    ? [...parsed.warnings, "입찰가 저장 실패: " + bidSettingsError]
+    : parsed.warnings;
   return NextResponse.json({
     ok: true,
     inserted: records.length,
@@ -218,6 +299,6 @@ export async function POST(req: Request) {
     unclassifiedCount: parsed.unclassified.length,
     unclassified: parsed.unclassified.slice(0, 20),
     detectedColumns: parsed.detectedColumns,
-    warnings: parsed.warnings,
+    warnings: responseWarnings,
   });
 }

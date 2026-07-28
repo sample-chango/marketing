@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CURRENT_BID_SETTINGS_KEY, currentBidKey, parseCurrentBidMap } from "@/lib/current-bids";
 
 export interface MetricRow {
   category: string;
@@ -8,6 +9,7 @@ export interface MetricRow {
   impressions: number;
   clicks: number;
   cost: number;
+  currentBid: number | null;
   conversions: number;
   conversionValue: number;
   qualityScore: number | null;
@@ -30,7 +32,9 @@ function canReadDashboardData(): boolean {
   );
 }
 
-const SELECT_COLS =
+const SELECT_COLS_WITH_CURRENT_BID =
+  "category,campaign,ad_group,keyword,impressions,clicks,cost,current_bid,conversions,conversion_value,quality_score,report_date,period_start,period_end";
+const SELECT_COLS_LEGACY =
   "category,campaign,ad_group,keyword,impressions,clicks,cost,conversions,conversion_value,quality_score,report_date,period_start,period_end";
 
 interface RawRow {
@@ -41,6 +45,7 @@ interface RawRow {
   impressions: number;
   clicks: number;
   cost: number;
+  current_bid?: number | null;
   conversions: number;
   conversion_value: number;
   quality_score: number | null;
@@ -58,6 +63,7 @@ function normalize(r: RawRow): MetricRow {
     impressions: Number(r.impressions) || 0,
     clicks: Number(r.clicks) || 0,
     cost: Number(r.cost) || 0,
+    currentBid: r.current_bid == null ? null : Number(r.current_bid),
     conversions: Number(r.conversions) || 0,
     conversionValue: Number(r.conversion_value) || 0,
     qualityScore: r.quality_score == null ? null : Number(r.quality_score),
@@ -67,29 +73,59 @@ function normalize(r: RawRow): MetricRow {
   };
 }
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function fetchCurrentBidMap(supabase: AdminClient): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", CURRENT_BID_SETTINGS_KEY)
+    .maybeSingle();
+  if (error) {
+    console.warn("[data] current bid map load failed:", error.message);
+    return {};
+  }
+  return parseCurrentBidMap(typeof data?.value === "string" ? data.value : null);
+}
+
+function applyCurrentBidMap(rows: MetricRow[], bidMap: Record<string, number>): MetricRow[] {
+  if (Object.keys(bidMap).length === 0) return rows;
+  return rows.map((row) => {
+    const mappedBid = bidMap[currentBidKey(row)];
+    if (!Number.isFinite(mappedBid) || mappedBid <= 0) return row;
+    return { ...row, currentBid: mappedBid };
+  });
+}
+function isMissingCurrentBidColumnError(error: unknown): boolean {
+  const item = error as { code?: string; message?: string } | null | undefined;
+  const message = String(item?.message ?? "").toLowerCase();
+  return (
+    message.includes("current_bid") &&
+    (item?.code === "42703" || item?.code === "PGRST204" || message.includes("schema cache") || message.includes("does not exist"))
+  );
+}
+
 async function fetchRows(): Promise<MetricRow[]> {
   if (!canReadDashboardData()) return [];
 
   const supabase = createAdminClient();
   const pageSize = 1000;
+  const finishRows = async (rows: MetricRow[]) => applyCurrentBidMap(rows, await fetchCurrentBidMap(supabase));
 
-  try {
+  const fetchWithSelect = async (selectCols: string) => {
     const first = await supabase
       .from("ad_metrics")
-      .select(SELECT_COLS, { count: "exact" })
+      .select(selectCols, { count: "exact" })
       .order("period_end", { ascending: true })
       .range(0, pageSize - 1);
 
-    if (first.error) {
-      console.error("[data] fetchRows error:", first.error.message);
-      return [];
-    }
+    if (first.error) return { rows: [] as MetricRow[], error: first.error };
 
     const firstRows = (first.data ?? []) as unknown as RawRow[];
     const total = first.count ?? firstRows.length;
 
     if (firstRows.length < pageSize || total <= firstRows.length) {
-      return firstRows.map(normalize);
+      return { rows: firstRows.map(normalize), error: null };
     }
 
     if (first.count == null) {
@@ -98,37 +134,54 @@ async function fetchRows(): Promise<MetricRow[]> {
         const to = from + pageSize - 1;
         const { data, error } = await supabase
           .from("ad_metrics")
-          .select(SELECT_COLS)
+          .select(selectCols)
           .order("period_end", { ascending: true })
           .range(from, to);
-        if (error) {
-          console.error("[data] fetchRows error:", error.message);
-          return [];
-        }
+        if (error) return { rows: [] as MetricRow[], error };
         rows.push(...((data ?? []) as unknown as RawRow[]));
         if ((data ?? []).length < pageSize) break;
       }
-      return rows.map(normalize);
+      return { rows: rows.map(normalize), error: null };
     }
 
-    const ranges: Array<[number, number]> = [];
-    for (let from = pageSize; from < total; from += pageSize) {
-      ranges.push([from, Math.min(from + pageSize - 1, total - 1)]);
+    try {
+      const ranges: Array<[number, number]> = [];
+      for (let from = pageSize; from < total; from += pageSize) {
+        ranges.push([from, Math.min(from + pageSize - 1, total - 1)]);
+      }
+
+      const pages = await Promise.all(
+        ranges.map(async ([from, to]) => {
+          const { data, error } = await supabase
+            .from("ad_metrics")
+            .select(selectCols)
+            .order("period_end", { ascending: true })
+            .range(from, to);
+          if (error) throw error;
+          return (data ?? []) as unknown as RawRow[];
+        }),
+      );
+
+      return { rows: [...firstRows, ...pages.flat()].map(normalize), error: null };
+    } catch (error) {
+      return { rows: [] as MetricRow[], error };
+    }
+  };
+
+  try {
+    const withBid = await fetchWithSelect(SELECT_COLS_WITH_CURRENT_BID);
+    if (!withBid.error) return finishRows(withBid.rows);
+
+    if (isMissingCurrentBidColumnError(withBid.error)) {
+      console.warn("[data] current_bid column is not available yet; loading rows without bid data.");
+      const legacy = await fetchWithSelect(SELECT_COLS_LEGACY);
+      if (!legacy.error) return finishRows(legacy.rows);
+      console.error("[data] fetchRows error:", (legacy.error as Error).message);
+      return [];
     }
 
-    const pages = await Promise.all(
-      ranges.map(async ([from, to]) => {
-        const { data, error } = await supabase
-          .from("ad_metrics")
-          .select(SELECT_COLS)
-          .order("period_end", { ascending: true })
-          .range(from, to);
-        if (error) throw error;
-        return (data ?? []) as unknown as RawRow[];
-      }),
-    );
-
-    return [...firstRows, ...pages.flat()].map(normalize);
+    console.error("[data] fetchRows error:", (withBid.error as Error).message);
+    return [];
   } catch (error) {
     console.error("[data] fetchRows error:", (error as Error).message);
     return [];

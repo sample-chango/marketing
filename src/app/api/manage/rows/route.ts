@@ -14,6 +14,15 @@ function guard() {
 
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
+function isMissingCurrentBidColumnError(error: unknown): boolean {
+  const item = error as { code?: string; message?: string } | null | undefined;
+  const message = String(item?.message ?? "").toLowerCase();
+  return (
+    message.includes("current_bid") &&
+    (item?.code === "42703" || item?.code === "PGRST204" || message.includes("schema cache") || message.includes("does not exist"))
+  );
+}
+
 /** 한 기간의 행 목록 (수정용, id 포함) */
 export async function GET(req: Request) {
   if (!guard()) return NextResponse.json({ rows: [] });
@@ -24,14 +33,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "기간 형식 오류" }, { status: 400 });
   }
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("ad_metrics")
-    .select(
+  const queryRows = (selectCols: string) =>
+    supabase
+      .from("ad_metrics")
+      .select(selectCols)
+      .eq("period_start", start)
+      .eq("period_end", end)
+      .order("cost", { ascending: false });
+  let { data, error } = await queryRows(
+    "id,category,keyword,impressions,clicks,cost,current_bid,conversions,conversion_value,quality_score",
+  );
+  if (error && isMissingCurrentBidColumnError(error)) {
+    const retry = await queryRows(
       "id,category,keyword,impressions,clicks,cost,conversions,conversion_value,quality_score",
-    )
-    .eq("period_start", start)
-    .eq("period_end", end)
-    .order("cost", { ascending: false });
+    );
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -62,6 +80,7 @@ export async function PATCH(req: Request) {
     ["impressions", "impressions"],
     ["clicks", "clicks"],
     ["cost", "cost"],
+    ["currentBid", "current_bid"],
     ["conversions", "conversions"],
     ["conversionValue", "conversion_value"],
   ];
@@ -83,7 +102,16 @@ export async function PATCH(req: Request) {
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase.from("ad_metrics").update(patch).eq("id", id);
+  let { error } = await supabase.from("ad_metrics").update(patch).eq("id", id);
+  if (error && isMissingCurrentBidColumnError(error) && "current_bid" in patch) {
+    delete patch.current_bid;
+    if (Object.keys(patch).length > 0) {
+      const retry = await supabase.from("ad_metrics").update(patch).eq("id", id);
+      error = retry.error;
+    } else {
+      error = null;
+    }
+  }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
