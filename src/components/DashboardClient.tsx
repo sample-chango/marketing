@@ -1055,16 +1055,9 @@ function MetricHelpLabel({
 
   return (
     <span
-      className={`group relative inline-flex cursor-help items-center gap-1 underline decoration-slate-300 decoration-dotted underline-offset-4 ${className}`}
-      title={`${help.title}: ${help.description}`}
+      className={`group relative inline-flex cursor-default items-center ${className}`}
     >
       {label}
-      <span
-        aria-hidden="true"
-        className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#E4EAF1] text-[10px] font-bold leading-none text-[#4F5B6A]"
-      >
-        ?
-      </span>
       <span
         role="tooltip"
         className="pointer-events-none invisible absolute left-0 top-full z-50 mt-2 w-64 translate-y-1 rounded-lg border border-[#DCE4EE] bg-white p-3 text-left opacity-0 shadow-[0_12px_30px_rgba(66,80,102,0.16)] transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100"
