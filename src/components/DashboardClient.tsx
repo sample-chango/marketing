@@ -55,6 +55,64 @@ const ACTIVE_CHIP_CLASS =
 const IDLE_CHIP_CLASS =
   "bg-[#EEF2F6] text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]";
 
+const METRIC_HELP: Record<string, { title: string; description: string }> = {
+  노출수: {
+    title: "노출수",
+    description:
+      "광고가 검색 결과나 지면에 보여진 횟수예요. 많을수록 고객에게 발견될 기회가 많다는 뜻입니다.",
+  },
+  클릭수: {
+    title: "클릭수",
+    description:
+      "광고를 본 사람 중 실제로 눌러서 상세페이지나 사이트로 들어온 횟수예요.",
+  },
+  CTR: {
+    title: "CTR",
+    description:
+      "클릭률이에요. 광고가 보여진 횟수 중 몇 번 클릭됐는지 보는 지표라, 문구나 상품 이미지가 눈길을 끄는지 판단할 때 씁니다.",
+  },
+  CPC: {
+    title: "CPC",
+    description:
+      "클릭 1번을 얻는 데 평균 얼마를 썼는지예요. 낮을수록 같은 예산으로 더 많은 방문을 만들 수 있습니다.",
+  },
+  구매: {
+    title: "구매",
+    description:
+      "광고를 통해 들어온 고객이 실제 구매 완료까지 이어진 횟수예요. 전환수와 같은 의미로 보면 됩니다.",
+  },
+  전환: {
+    title: "전환",
+    description:
+      "광고 유입 이후 구매처럼 우리가 원하는 행동이 일어난 횟수예요. 이 화면에서는 구매 완료를 중심으로 봅니다.",
+  },
+  CVR: {
+    title: "CVR",
+    description:
+      "전환율이에요. 클릭해서 들어온 사람 중 실제 구매까지 이어진 비율입니다. 방문자의 구매 의지가 좋은지 볼 때 씁니다.",
+  },
+  CPA: {
+    title: "CPA",
+    description:
+      "구매 1건을 만들기 위해 평균 얼마의 광고비를 썼는지예요. 낮을수록 전환 효율이 좋습니다.",
+  },
+  매출: {
+    title: "매출",
+    description:
+      "광고를 통해 발생한 구매 완료 매출액이에요. 광고가 실제 돈으로 얼마나 이어졌는지 보여줍니다.",
+  },
+  광고비: {
+    title: "광고비",
+    description:
+      "선택한 기간 동안 광고에 쓴 비용이에요. 매출, 구매, ROAS와 함께 봐야 효율을 판단할 수 있습니다.",
+  },
+  ROAS: {
+    title: "ROAS",
+    description:
+      "광고비 대비 매출이에요. 100%면 쓴 광고비만큼 매출이 난 것이고, 높을수록 광고 효율이 좋습니다.",
+  },
+};
+
 const PRIMARY: Record<
   FunnelStage["key"],
   { label: string; pick: (m: DerivedMetrics) => number; fmt: (n: number) => string }
@@ -984,6 +1042,44 @@ function Delta({
   );
 }
 
+function MetricHelpLabel({
+  label,
+  className = "",
+}: {
+  label: string;
+  className?: string;
+}) {
+  const help = METRIC_HELP[label];
+
+  if (!help) return <span className={className}>{label}</span>;
+
+  return (
+    <span
+      className={`group relative inline-flex cursor-help items-center gap-1 underline decoration-slate-300 decoration-dotted underline-offset-4 ${className}`}
+      title={`${help.title}: ${help.description}`}
+    >
+      {label}
+      <span
+        aria-hidden="true"
+        className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#E4EAF1] text-[10px] font-bold leading-none text-[#4F5B6A]"
+      >
+        ?
+      </span>
+      <span
+        role="tooltip"
+        className="pointer-events-none invisible absolute left-0 top-full z-50 mt-2 w-64 translate-y-1 rounded-lg border border-[#DCE4EE] bg-white p-3 text-left opacity-0 shadow-[0_12px_30px_rgba(66,80,102,0.16)] transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100"
+      >
+        <span className="block text-xs font-semibold text-slate-800">
+          {help.title}
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">
+          {help.description}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 
 type ExplanationGroup = {
   tone: ComparisonExplanation["tone"];
@@ -1803,7 +1899,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                         key={m.label}
                         className="flex items-center justify-between gap-3 text-left"
                       >
-                        <div className="text-xs text-slate-500">{m.label}</div>
+                        <div className="text-xs text-slate-500">
+                          <MetricHelpLabel label={m.label} />
+                        </div>
                         <div className="shrink-0 text-right font-bold text-slate-800">
                           {m.value(current)}
                         </div>
@@ -1824,7 +1922,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <div className="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-2">
           <div className="md:col-span-3">
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
-              카테고리별 {primary.label}
+              카테고리별 <MetricHelpLabel label={primary.label} />
             </h3>
             <div className="md:pr-7">
               <MetricRankList
@@ -1845,7 +1943,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
           <div className="md:col-span-3 md:col-start-5 md:pl-7 md:pr-[17px]">
             <h3 className="mb-3 text-sm font-semibold text-slate-700">
-              {primary.label} 상위 상품{" "}
+              <MetricHelpLabel label={primary.label} /> 상위 상품{" "}
               <span className="font-normal text-slate-400">
                 · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
               </span>
