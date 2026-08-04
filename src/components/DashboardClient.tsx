@@ -192,6 +192,12 @@ const EXPLANATION_TONE_ORDER: ComparisonExplanation["tone"][] = [
   "warn",
   "neutral",
 ];
+const RECOMMENDATION_TONES: ComparisonExplanation["tone"][] = [
+  "good",
+  "danger",
+  "warn",
+];
+const MAX_RECOMMENDATIONS_PER_TONE = 5;
 
 const EXPLANATION_TONE_META: Record<
   ComparisonExplanation["tone"],
@@ -987,26 +993,15 @@ function buildComparisonExplanations(
 
   const actionableItems = productInsights
     .filter((item) => item.tone === "good" || item.tone === "danger" || item.tone === "warn");
-  const requiredActions = [
-    ...actionableItems.filter((item) => item.tone === "good").slice(0, 2),
-    ...actionableItems.filter((item) => item.tone === "danger").slice(0, 2),
-    ...actionableItems.filter((item) => item.tone === "warn").slice(0, 1),
-  ].slice(0, 5);
+  const requiredActions = RECOMMENDATION_TONES.flatMap((tone) =>
+    actionableItems
+      .filter((item) => item.tone === tone)
+      .slice(0, MAX_RECOMMENDATIONS_PER_TONE),
+  );
 
   if (requiredActions.length > 0) return requiredActions;
 
-  return [
-    {
-      tone: "neutral",
-      title: "추천할 조정 항목이 없습니다",
-      body: "이번 비교 기간에서는 올리거나 줄일 만큼 뚜렷한 제품이 보이지 않습니다.",
-      details: [
-        "작은 변동까지 모두 조치하면 광고비와 소재가 흔들릴 수 있어, 현재 결과에는 의미 있는 하락/비효율만 표시합니다.",
-        "다음 업로드에서 같은 제품이 2회 이상 반복 하락하거나 광고비가 늘어도 매출이 따라오지 않으면 조치 항목으로 올립니다.",
-      ],
-      action: "지금은 크게 바꾸지 말고 유지하세요. 같은 문제가 한 번 더 나오면 그때 이동/감액 후보로 올립니다.",
-    },
-  ];
+  return [];
 }
 
 function Bar({ pct, color }: { pct: number; color: string }) {
@@ -1126,6 +1121,8 @@ function ActionRecommendationPanel({
   grouped: ExplanationGroup[];
   bidDataReady: boolean;
 }) {
+  if (grouped.length === 0) return null;
+
   return (
     <details className={CARD_CLASS} open>
       <summary className="mb-4 flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
@@ -1164,10 +1161,10 @@ function ActionRecommendationPanel({
                     key={`${item.title}-${index}`}
                     className={`group rounded-xl border ${toneMeta.cardClass}`}
                   >
-                    <summary className="cursor-pointer list-none p-4">
-                      <div className="flex items-start justify-between gap-3">
+                    <summary className="cursor-pointer list-none px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className={`rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold ${toneMeta.labelClass}`}>
                               {toneMeta.badge}
                             </span>
@@ -1175,33 +1172,12 @@ function ActionRecommendationPanel({
                               {actionParts.actionType}
                             </span>
                           </div>
-                          <div className="mt-3 grid gap-3">
-                            <div className="min-w-0">
-                              <div className="text-[11px] font-semibold text-slate-400">제품</div>
-                              <div className="mt-1 break-words text-sm font-semibold leading-6 text-slate-900">
-                                {actionParts.target}
-                              </div>
-                            </div>
-                            <div className="border-l-4 border-slate-300 pl-3">
-                              <div className={`text-[11px] font-semibold ${toneMeta.labelClass}`}>바로 할 일</div>
-                              <div className="mt-1 space-y-2">
-                                {item.action.split("\n").map((line, lineIndex) =>
-                                  lineIndex === 0 ? (
-                                    <p key={lineIndex} className="text-sm font-bold leading-6 text-slate-900">
-                                      {line}
-                                    </p>
-                                  ) : (
-                                    <p key={lineIndex} className="inline-flex max-w-full rounded-md bg-white/80 px-2.5 py-1.5 text-xs font-bold leading-5 text-slate-800 ring-1 ring-slate-200">
-                                      {line}
-                                    </p>
-                                  ),
-                                )}
-                              </div>
-                            </div>
+                          <div className="mt-1.5 break-words text-sm font-semibold leading-6 text-slate-900">
+                            {actionParts.target}
                           </div>
                         </div>
-                        <span className="mt-1 shrink-0 text-xs font-semibold text-slate-400">
-                          근거 보기 <span aria-hidden="true" className="inline-block transition group-open:rotate-180">⌄</span>
+                        <span className="shrink-0 text-xs font-semibold text-slate-400">
+                          자세히 보기 <span aria-hidden="true" className="inline-block transition group-open:rotate-180">⌄</span>
                         </span>
                       </div>
                     </summary>
@@ -1209,6 +1185,22 @@ function ActionRecommendationPanel({
                       <div className="rounded-lg border border-white/80 bg-white/90 px-3 py-2.5">
                         <div className="text-[11px] font-semibold text-slate-400">결론</div>
                         <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{conclusion}</p>
+                      </div>
+                      <div className="mt-3 rounded-lg border border-white/80 bg-white/90 px-3 py-2.5">
+                        <div className={`text-[11px] font-semibold ${toneMeta.labelClass}`}>조정 방향</div>
+                        <div className="mt-1 space-y-2">
+                          {item.action.split("\n").map((line, lineIndex) =>
+                            lineIndex === 0 ? (
+                              <p key={lineIndex} className="text-sm font-semibold leading-6 text-slate-900">
+                                {line}
+                              </p>
+                            ) : (
+                              <p key={lineIndex} className="inline-flex max-w-full rounded-md bg-white/80 px-2.5 py-1.5 text-xs font-semibold leading-5 text-slate-800 ring-1 ring-slate-200">
+                                {line}
+                              </p>
+                            ),
+                          )}
+                        </div>
                       </div>
                       <div className="mt-3 grid gap-2 md:grid-cols-2">
                         {evidenceDetails.map((detail, detailIndex) => {
