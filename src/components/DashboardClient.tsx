@@ -1367,6 +1367,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   end={analysisA.end}
                   min={earliest}
                   max={latest}
+                  availableDates={allDates}
                   onChange={(s, e) => {
                     setAnalysisAStart(s);
                     setAnalysisAEnd(e);
@@ -1384,6 +1385,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   end={analysisB.end}
                   min={earliest}
                   max={latest}
+                  availableDates={allDates}
                   onChange={(s, e) => {
                     setAnalysisBStart(s);
                     setAnalysisBEnd(e);
@@ -1666,6 +1668,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           end={re}
           min={earliest}
           max={latest}
+          availableDates={allDates}
           onChange={(s, e) => {
             setRangeStart(s);
             setRangeEnd(e);
@@ -1966,12 +1969,14 @@ function RangeCalendar({
   end,
   min,
   max,
+  availableDates,
   onChange,
 }: {
   start: string;
   end: string;
   min: string;
   max: string;
+  availableDates: string[];
   onChange: (start: string, end: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -2008,6 +2013,8 @@ function RangeCalendar({
     return { y, m: m - 1, d };
   };
   const fmtD = (iso: string) => iso.replaceAll("-", ".");
+  const availableDateSet = new Set(availableDates);
+  const isAvailable = (day: string) => availableDateSet.has(day);
 
   // 데이터가 없으면 달력 대신 안내
   if (!max) {
@@ -2036,7 +2043,7 @@ function RangeCalendar({
   const canNext = viewMonth < max.slice(0, 7);
 
   const pick = (day: string) => {
-    if (day < min || day > max) return;
+    if (day < min || day > max || !isAvailable(day)) return;
     if (pending == null) {
       setPending(day);
     } else {
@@ -2054,7 +2061,7 @@ function RangeCalendar({
   const isEdge = (day: string) =>
     pending ? day === pending : day === start || day === end;
   const within = (day: string) =>
-    pending ? false : day > start && day < end;
+    pending ? false : isAvailable(day) && day > start && day < end;
 
   return (
     <div className="relative" ref={ref}>
@@ -2110,7 +2117,7 @@ function RangeCalendar({
           <div className="grid grid-cols-7 gap-0.5">
             {cells.map((day, i) => {
               if (!day) return <div key={i} />;
-              const disabled = day < min || day > max;
+              const disabled = day < min || day > max || !isAvailable(day);
               return (
                 <button
                   key={i}
