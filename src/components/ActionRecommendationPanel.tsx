@@ -5,10 +5,10 @@ import { fmtRoas, fmtWon } from "@/lib/metrics";
 import { adjustedBidRange, adjustmentPercent, shortRecommendationName, type ComparisonExplanation } from "@/lib/recommendation-display";
 
 const GROUPS = [
-  { tone: "good", label: "확대 후보", icon: "↗", accent: "text-emerald-700", background: "bg-[#03C75A]/25" },
-  { tone: "danger", label: "축소 후보", icon: "↘", accent: "text-rose-700", background: "bg-rose-500/25" },
-  { tone: "warn", label: "점검 · 보류", icon: "Ⅱ", accent: "text-amber-700", background: "bg-amber-500/25" },
-  { tone: "neutral", label: "데이터 확인", icon: "?", accent: "text-slate-600", background: "bg-slate-500/25" },
+  { tone: "good", label: "확대 후보", icon: "↗", accent: "text-emerald-700", background: "bg-[#03C75A]/12" },
+  { tone: "danger", label: "축소 후보", icon: "↘", accent: "text-violet-700", background: "bg-[#8B5CF6]/12" },
+  { tone: "warn", label: "점검 · 보류", icon: "Ⅱ", accent: "text-sky-700", background: "bg-[#20B7E8]/12" },
+  { tone: "neutral", label: "데이터 확인", icon: "?", accent: "text-slate-600", background: "bg-slate-500/12" },
 ] as const;
 
 function RevenueBars({ evidence }: { evidence: NonNullable<ComparisonExplanation["evidence"]> }) {

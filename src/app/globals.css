@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f9f9f9;
   --foreground: #171717;
   --summary-tracking: -0.045em;
+  --performance-background: radial-gradient(ellipse at 100% 0%, #526d70 0%, transparent 65%), #465466;
 }
 
 @theme inline {
+  --color-white: #f9f9f9;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-google-sans-flex: "Google Sans Flex", -apple-system,
@@ -73,21 +75,23 @@ body {
   flex: 0 0 auto;
   width: 100%;
   margin-inline: auto;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 3.6px;
   min-height: 100.8px;
   padding: 14.4px 24px;
   border-radius: 15px;
-  background: radial-gradient(ellipse at 100% 0%, #526d70 0%, transparent 65%), #465466;
+  background: var(--performance-background);
   box-shadow: inset 0 2px 0 #03c75a, 0 8px 22px rgb(21 35 42 / 10%);
 }
 
+.roas-metrics { display: flex; align-items: center; flex-wrap: wrap; gap: clamp(12px, 3vw, 32px); }
+
 .roas-number {
   --roas-number-base: clamp(48px, 5vw, 76px);
-  margin-top: 5.4px;
-  color: white;
+  margin-top: 0;
+  color: var(--color-white);
   font-size: calc(var(--roas-number-base) * 0.9);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -109,6 +113,9 @@ body {
 
 .roas-context { border-left: 1px solid #718491; padding-left: 24px; }
 
+.flow-stages > button[aria-pressed="true"] { background: var(--performance-background); }
+.flow-stages > button[aria-pressed="true"] :is(svg, span, strong) { color: var(--color-white); }
+
 @media (min-width: 1024px) {
   .dashboard-scroll { container-type: size; }
   .summary-layout {
@@ -123,7 +130,6 @@ body {
   .roas-hero { height: var(--summary-roas-height); min-height: 0; padding-block: 5.4px; }
   .roas-number {
     --roas-number-base: min(clamp(48px, 5vw, 76px), calc(var(--summary-roas-previous-height) - 32px));
-    margin-top: 3.6px;
   }
   .dashboard-scroll { scroll-snap-type: y mandatory; }
   .dashboard-screen { padding-inline: 32px; }
@@ -137,11 +143,8 @@ body {
   .trend-plot-area { flex: 1; display: flex; align-items: stretch; }
   .trend-plot-area > p { flex: 1; min-height: 260px; height: auto; }
   .dashboard-trend .trend-chart {
-    height: clamp(260px, calc(100dvh - 312px), 808px);
-    align-self: center;
-  }
-  .dashboard-trend .trend-categories .trend-chart {
     height: clamp(220px, calc(100dvh - 440px), 680px);
+    align-self: center;
   }
 
   .flow-stages { flex: 1; min-height: 180px; padding-block: 16px; }
@@ -161,7 +164,7 @@ body {
 }
 
 @media (min-width: 1024px) and (max-width: 1199px) {
-  .dashboard-trend .trend-categories .trend-chart {
+  .dashboard-trend .trend-chart {
     height: clamp(220px, calc(100dvh - 460px), 660px);
   }
 }
@@ -178,7 +181,7 @@ body {
 
 @media (max-width: 639px) {
   .flow-stages > button > strong { font-size: clamp(14px, 4vw, 17px); }
-  .roas-hero { min-height: 80.64px; padding: 10.8px 16px; gap: 7.2px; }
+  .roas-hero { min-height: 80.64px; padding: 10.8px 16px; }
   .roas-context { border-left: 0; padding-left: 0; }
 }
 

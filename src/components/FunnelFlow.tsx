@@ -72,7 +72,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
       <div role="group" aria-label="확인할 광고 단계" className="flow-stages grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-center gap-x-1 gap-y-2 md:grid-cols-[minmax(0,1fr)_48px_minmax(0,1fr)_48px_minmax(0,1fr)_18px_minmax(0,1fr)]">
         {FLOW_STAGES.map((item, index) => <Fragment key={item.key}>
           <button type="button" aria-pressed={stage === item.key} onClick={() => setStage(item.key)}
-            className={`flex h-full min-w-0 flex-col gap-1 rounded-xl px-3 py-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${stage === item.key ? "bg-[#03C75A]/25" : "bg-[#EEF2F6] hover:bg-slate-100"}`}>
+            className={`flex h-full min-w-0 flex-col gap-1 rounded-xl px-3 py-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${stage === item.key ? "text-white" : "bg-[#EEF2F6] hover:bg-slate-100"}`}>
             <FlowIcon stage={item.key} /><span className={`mt-2 text-slate-600 ${item.key === "revenue" ? "text-sm font-medium" : "text-xs"}`}>{item.label}</span>
             <strong className="whitespace-nowrap text-[17px] font-bold tabular-nums text-slate-900 md:text-xl lg:text-[22px]">{stageValue(item.key, current)}</strong>
             <span className="hidden text-[11px] text-slate-400 md:block">{item.description}</span>
@@ -102,7 +102,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
           {products.map((product, index) => {
             const rate = stage === "awareness" ? null : flowRate(product.metrics, stage);
             return <li key={product.key} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-2 rounded-lg p-2.5 sm:block"
-              style={{ backgroundColor: `color-mix(in srgb, ${CATEGORY_COLORS[product.category] ?? "#94A3B8"} 25%, transparent)` }}>
+              style={{ backgroundColor: `color-mix(in srgb, ${CATEGORY_COLORS[product.category] ?? "#94A3B8"} 12%, transparent)` }}>
               <div className="flex items-start gap-1.5"><span className="shrink-0 text-[11px] tabular-nums text-slate-400">{index + 1}</span><p title={product.name} className="line-clamp-2 min-w-0 text-xs leading-5 text-slate-600">{product.name}</p></div>
               <div className="flex flex-col items-end gap-y-1 sm:mt-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-2"><strong className="text-sm font-semibold tabular-nums text-slate-800">{productValue(product.value)}</strong>
                 {stage !== "awareness" && <span className="text-[11px] tabular-nums text-slate-500">{stage === "revenue" ? "비용 대비" : stage === "acquisition" ? "클릭 연결" : "구매 연결"} {stage === "revenue" ? multiple(rate) : percent(rate)}</span>}
