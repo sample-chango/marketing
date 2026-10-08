@@ -91,7 +91,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
       {selected && (
         <>
           <div className="mb-3 mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-slate-700">{categories ? `카테고리별 ${cfg.label}` : "날짜별 상세 수치"}</p>
+            <p className="text-xs font-semibold text-slate-700">{categories ? `선택일 카테고리별 ${cfg.label}` : "날짜별 상세 수치"}</p>
             <label className="flex items-center gap-2 text-[11px] text-slate-400">선택 날짜
               <select value={date} aria-label="추이 상세 날짜" onChange={(event) => setSelectedDate(event.target.value)}
                 className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">
@@ -100,28 +100,28 @@ export function PeriodTrend({ rows, dates, periodText }: {
             </label>
           </div>
           {categories ? (
-            <table className="w-full table-fixed text-[11px] sm:text-xs">
-              <caption className="sr-only">카테고리별 기간 합계와 {date}의 {cfg.label}</caption>
-              <thead className="border-b border-slate-100 text-[11px] font-normal text-slate-400">
-                <tr><th className="w-[38%] py-2 text-left font-normal">카테고리</th><th className="py-2 text-right font-normal">기간 합계</th><th className="py-2 text-right font-normal">{selected.label}</th></tr>
-              </thead>
-              <tbody>
-                {series.map((item, index) => (
-                  <tr key={item.key} className={`border-b border-slate-100 hover:bg-slate-50 ${index === 0 ? "font-semibold text-slate-800" : "text-slate-600"}`}
-                    onMouseEnter={() => setHighlightedKey(item.key)} onMouseLeave={() => setHighlightedKey(null)}>
-                    <td className="py-3">
-                      <button type="button" aria-pressed={highlightedKey === item.key} onClick={() => setHighlightedKey(item.key)}
-                        onFocus={() => setHighlightedKey(item.key)} onBlur={() => setHighlightedKey(null)}
-                        className="inline-flex min-h-7 items-center gap-1.5 rounded text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400">
-                        <i aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />{item.name}
-                      </button>
-                    </td>
-                    <td className="py-3 text-right tabular-nums">{cfg.format(item.total)}</td>
-                    <td className="py-3 text-right tabular-nums">{cfg.format(Number(selected[item.key]))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
+              aria-label={`카테고리별 ${date}의 ${cfg.label}와 기간 합계`}>
+              {series.map((item) => (
+                <li key={item.key} className="min-w-0">
+                  <button type="button" aria-pressed={highlightedKey === item.key}
+                    onClick={() => setHighlightedKey(item.key)}
+                    onMouseEnter={() => setHighlightedKey(item.key)} onMouseLeave={() => setHighlightedKey(null)}
+                    onFocus={() => setHighlightedKey(item.key)} onBlur={() => setHighlightedKey(null)}
+                    className="flex h-full w-full min-w-0 flex-col rounded-lg bg-slate-50 p-2.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400">
+                    <span className="flex w-full min-w-0 items-center gap-1.5 text-[11px] text-slate-600">
+                      <i aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
+                      <span className="truncate" title={item.name}>{item.name}</span>
+                    </span>
+                    <span className="mt-2 w-full break-all text-sm font-semibold tabular-nums text-slate-800">
+                      {cfg.format(Number(selected[item.key]))}
+                    </span>
+                    <span className="mt-1.5 text-[11px] text-slate-400">기간 합계</span>
+                    <span className="mt-0.5 w-full break-all text-[11px] tabular-nums text-slate-500">{cfg.format(item.total)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-4" aria-live="polite">
               {[
