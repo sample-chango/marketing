@@ -20,6 +20,8 @@ import {
 } from "@/lib/metrics";
 import { CategoryDonut } from "@/components/CategoryDonut";
 import { PeriodTrend } from "@/components/PeriodTrend";
+import { ActionRecommendationPanel } from "@/components/ActionRecommendationPanel";
+import type { ComparisonExplanation } from "@/lib/recommendation-display";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
 type Filter = CategorySlug | "all";
@@ -143,95 +145,12 @@ const byCatOf = (rs: MetricRow[]) =>
 
 /* ---------- 이슈(주요 변화) 분석 ---------- */
 
-interface ComparisonExplanation {
-  tone: "good" | "warn" | "danger" | "neutral";
-  title: string;
-  body: string;
-  details: string[];
-  action: string;
-}
-
-const EXPLANATION_TONE_ORDER: ComparisonExplanation["tone"][] = [
-  "good",
-  "danger",
-  "warn",
-  "neutral",
-];
 const RECOMMENDATION_TONES: ComparisonExplanation["tone"][] = [
   "good",
   "danger",
   "warn",
 ];
 const MAX_RECOMMENDATIONS_PER_TONE = 5;
-
-const EXPLANATION_TONE_META: Record<
-  ComparisonExplanation["tone"],
-  {
-    label: string;
-    badge: string;
-    cardClass: string;
-    labelClass: string;
-    dotClass: string;
-  }
-> = {
-  good: {
-    label: "비중 키울 제품",
-    badge: "광고비 이동 후보",
-    cardClass: "border-emerald-200 bg-emerald-50",
-    labelClass: "text-emerald-700",
-    dotClass: "bg-emerald-500",
-  },
-  danger: {
-    label: "비중 줄일 제품",
-    badge: "광고비 회수 후보",
-    cardClass: "border-rose-200 bg-rose-50",
-    labelClass: "text-rose-700",
-    dotClass: "bg-rose-500",
-  },
-  warn: {
-    label: "점검 조치",
-    badge: "확인 후 조정",
-    cardClass: "border-amber-200 bg-amber-50",
-    labelClass: "text-amber-700",
-    dotClass: "bg-amber-500",
-  },
-  neutral: {
-    label: "필요 조치 없음",
-    badge: "유지",
-    cardClass: "border-slate-200 bg-slate-50",
-    labelClass: "text-slate-500",
-    dotClass: "bg-slate-400",
-  },
-};
-
-const ACTION_TITLE_SUFFIXES = [
-  "회복 테스트 후보",
-  "회복/보호 후보",
-  "광고비 재배분 후보",
-  "힘 보탤 후보",
-  "신규 집행 비용 점검",
-  "매출 하락 우선 점검",
-  "광고비 효율 점검",
-  "전환 회복 필요",
-  "ROAS 하락 점검",
-  "비중 줄일 후보",
-];
-
-function actionDisplayParts(item: ComparisonExplanation) {
-  for (const suffix of ACTION_TITLE_SUFFIXES) {
-    if (item.title.endsWith(` ${suffix}`)) {
-      return {
-        target: item.title.slice(0, -suffix.length).trim(),
-        actionType: suffix,
-      };
-    }
-  }
-
-  return {
-    target: item.title,
-    actionType: item.tone === "good" ? "힘 보탤 후보" : item.tone === "danger" ? "우선 조치" : "점검 조치",
-  };
-}
 
 const nameOf = (r: MetricRow) => r.keyword ?? r.ad_group ?? r.campaign ?? "-";
 const truncName = (s: string, n = 22) => (s.length > n ? s.slice(0, n) + "…" : s);
@@ -657,6 +576,11 @@ function buildComparisonExplanations(
         cur.roas >= Math.max(minimumHistoryRoas, history.metrics.roas * 0.7) &&
         (currentVsHistoryRevenue == null || currentVsHistoryRevenue >= -0.2) &&
         (currentVsRecentRevenue == null || currentVsRecentRevenue >= -0.35);
+      const evidence = {
+        currentBid, roas: cur.roas, overallRoas: current.roas,
+        cost: cur.cost, revenue: cur.conversionValue,
+        currentDailyRevenue, historyDailyRevenue, recentDailyRevenue,
+      };
       const baseDetails = [
         `현재 수치: 마지막 날 평균 입찰가 ${currentBid == null ? "없음" : fmtWon(currentBid)} | 광고비 ${fmtWon(cur.cost)} | 매출 ${fmtWon(cur.conversionValue)} | 구매 ${fmtInt(cur.conversions)}건 | ROAS ${fmtRoas(cur.roas)} | CTR ${fmtPct(cur.ctr)} | CVR ${fmtPct(cur.cvr)}`,
         `흐름: 선택기간 일평균 매출 ${fmtWon(Math.round(currentDailyRevenue))} | 전체 과거 일평균 매출 ${fmtWon(Math.round(historyDailyRevenue))} | 최근 ${recentHistoryDays}일 일평균 매출 ${fmtWon(Math.round(recentDailyRevenue))}`,
@@ -706,8 +630,12 @@ function buildComparisonExplanations(
         return {
           score: cur.cost / 1500 + Math.abs(Math.min(currentVsHistoryRevenue ?? rev ?? 0, 0)),
           item: {
+            target: name,
+            evidence,
             tone: "warn",
             title: `${displayName} 감액 보류 점검`,
+            reason: "과거·최근 성과 유지",
+            adjustment: { direction: "down", minPct: 0.1, condition: "review" },
             body: `선택 기간만 보면 성과가 나쁘지만, 전체 과거와 최근 흐름이 좋아 바로 줄이면 회복 가능한 제품을 놓칠 수 있습니다.`,
             details: [
               ...baseDetails,
@@ -722,8 +650,14 @@ function buildComparisonExplanations(
         return {
           score: history.metrics.roas + cur.roas + currentDailyRevenue / 10000 + Math.max(currentVsHistoryRevenue ?? 0, 0),
           item: {
+            target: name,
+            evidence,
             tone: "good",
             title: `${displayName} 과거 흐름상 광고비 이동 후보`,
+            reason: exposureNeedsHelp ? "노출 감소 · 성과 유지" : "과거·최근 성과 유지",
+            adjustment: currentVsHistoryRevenue != null && currentVsHistoryRevenue >= 0.15
+              ? { direction: "up", minPct: 0.1, maxPct: 0.2, condition: "transfer" }
+              : exposureNeedsHelp ? { direction: "up", minPct: 0.05, maxPct: 0.1 } : undefined,
             body: `직전 기간보다 전체 과거와 최근 7일 흐름을 기준으로 봤을 때, 다른 제품을 낮춘 만큼 올려볼 만한 제품입니다.`,
             details: baseDetails,
             action: currentVsHistoryRevenue != null && currentVsHistoryRevenue >= 0.15
@@ -747,8 +681,12 @@ function buildComparisonExplanations(
         return {
           score: cur.roas + Math.abs(impressions) + Math.abs(revenueChange) + cur.conversionValue / 100000,
           item: {
+            target: name,
+            evidence,
             tone: "good",
             title: `${displayName} 회복 테스트 후보`,
+            reason: "노출 감소 · 효율 유지",
+            adjustment: { direction: "up", minPct: 0.05, maxPct: 0.1 },
             body: `매출은 줄었지만 효율은 아직 좋습니다. 바로 줄이지 말고 회복 테스트를 해볼 제품입니다.`,
             details: baseDetails,
             action: withBidChange("입찰가를 5~10%만 올려 하루 테스트하세요. 효율이 유지될 때만 비효율 제품은 낮추고 이 제품은 올리는 방식으로 옮기고, 떨어지면 바로 원래대로 돌리세요.", currentBid, "up", 0.05, 0.1),
@@ -760,8 +698,12 @@ function buildComparisonExplanations(
         return {
           score: cur.roas + cur.conversionValue / 50000 + Math.abs(revenueChange),
           item: {
+            target: name,
+            evidence,
             tone: "good",
             title: `${displayName} 회복/보호 후보`,
+            reason: "매출 감소 · 구매 유지",
+            adjustment: exposureNeedsHelp ? { direction: "up", minPct: 0.05, maxPct: 0.1 } : undefined,
             body: `매출은 줄었지만 광고효율과 구매는 살아 있습니다. 하루만 보고 광고비를 회수하기엔 아까운 제품입니다.`,
             details: baseDetails,
             action: exposureNeedsHelp
@@ -782,8 +724,14 @@ function buildComparisonExplanations(
         return {
           score: cur.roas + cur.conversionValue / 50000 + Math.max(revenueChange ?? 0.25, 0),
           item: {
+            target: name,
+            evidence,
             tone: "good",
             title: `${displayName} 광고비 재배분 후보`,
+            reason: "현재·과거 성과 양호",
+            adjustment: exposureNeedsHelp
+              ? { direction: "up", minPct: 0.05, maxPct: 0.1 }
+              : { direction: "up", minPct: 0.1, maxPct: 0.2, condition: "transfer" },
             body: `지금 성과가 좋고 과거에도 팔렸습니다. 비중 줄일 제품을 낮춘 만큼 먼저 올려볼 제품입니다.`,
             details: [...baseDetails, "결론: 과거와 최근 흐름이 모두 괜찮아 다른 제품을 낮춘 만큼 올려볼 후보입니다."],
             action: exposureNeedsHelp
@@ -797,8 +745,14 @@ function buildComparisonExplanations(
         return {
           score: cur.roas + cur.conversionValue / 70000,
           item: {
+            target: name,
+            evidence,
             tone: "good",
             title: `${displayName} 힘 보탤 후보`,
+            reason: "현재 효율 · 과거 성과",
+            adjustment: exposureNeedsHelp
+              ? { direction: "up", minPct: 0.05, maxPct: 0.1 }
+              : { direction: "up", minPct: 0.05, condition: "transfer" },
             body: `현재 효율도 좋고 과거 성과도 있습니다. 다른 제품을 낮춘 만큼 올려볼 수 있는 제품입니다.`,
             details: baseDetails,
             action: exposureNeedsHelp
@@ -812,8 +766,12 @@ function buildComparisonExplanations(
         return {
           score: cur.cost / 1000 + Math.max(0, minimumPoorRoas - cur.roas) + Math.abs(Math.min(rev ?? 0, 0)),
           item: {
+            target: name,
+            evidence,
             tone: "danger",
             title: `${displayName} 비중 줄일 후보`,
+            reason: "광고비 대비 매출 부족",
+            adjustment: { direction: "down", minPct: 0.1, maxPct: 0.2 },
             body: `${cutReason} 지금은 이 제품의 입찰가를 낮추고 더 잘 팔리는 제품을 올리는 편이 낫습니다.`,
             details: [
               ...baseDetails,
@@ -830,8 +788,12 @@ function buildComparisonExplanations(
         return {
           score: cur.cost / 10000 + cur.clicks / 20,
           item: {
+            target: name,
+            evidence,
             tone: "warn",
             title: `${displayName} 신규 집행 비용 점검`,
+            reason: "신규 비용 · 매출 없음",
+            adjustment: { direction: "down", minPct: 0.1, condition: "review" },
             body: `돈은 쓰고 있는데 아직 매출이 없습니다. 테스트가 아니라면 빠르게 줄여야 합니다.`,
             details: baseDetails,
             action: withBidChange("하루만 더 보고, 클릭은 있는데 구매가 없으면 입찰가를 10% 낮추세요.", currentBid, "down", 0.1),
@@ -843,8 +805,11 @@ function buildComparisonExplanations(
         return {
           score: lostRevenue / 50000 + Math.abs(rev) + Math.abs(Math.min(conv ?? 0, 0)),
           item: {
+            target: name,
+            evidence,
             tone: "warn",
             title: `${displayName} 매출 하락 우선 점검`,
+            reason: "매출 감소 · 원인 점검",
             body: `매출이 크게 줄었습니다. 아직 올릴 제품은 아니고, 원인을 먼저 봐야 합니다.`,
             details: baseDetails,
             action: cur.cost < 1000 && cur.clicks <= 1
@@ -858,8 +823,12 @@ function buildComparisonExplanations(
         return {
           score: extraCost / 2000 + cost + Math.abs(Math.min(rev ?? 0, 0)) + Math.abs(Math.min(roasDrop, 0)),
           item: {
+            target: name,
+            evidence,
             tone: "danger",
             title: `${displayName} 비중 줄일 후보`,
+            reason: "광고비 대비 매출 부족",
+            adjustment: { direction: "down", minPct: 0.1, maxPct: 0.2 },
             body: `광고비가 늘었지만 매출은 따라오지 않았습니다. 광고비를 줄이는 쪽이 좋습니다.`,
             details: [...baseDetails, `비용 증가: 광고비가 ${fmtWon(extraCost)} 더 늘었습니다.`],
             action: withBidChange("입찰가를 10~20% 낮추고, 구매 없는 검색어는 제외하세요. 낮춘 만큼 비중 키울 제품을 올리세요.", currentBid, "down", 0.1, 0.2),
@@ -871,8 +840,11 @@ function buildComparisonExplanations(
         return {
           score: Math.abs(conv) + lostRevenue / 70000,
           item: {
+            target: name,
+            evidence,
             tone: "warn",
             title: `${displayName} 전환 회복 필요`,
+            reason: "구매 감소 · 원인 점검",
             body: `구매가 줄었습니다. 클릭보다 실제 구매가 왜 줄었는지 먼저 봐야 합니다.`,
             details: baseDetails,
             action: cur.cost < 1000 && cur.clicks <= 1
@@ -886,8 +858,11 @@ function buildComparisonExplanations(
         return {
           score: Math.abs(roasDrop) + extraCost / 30000,
           item: {
+            target: name,
+            evidence,
             tone: "warn",
             title: `${displayName} 광고효율 하락 점검`,
+            reason: "ROAS 하락 · 비용 점검",
             body: `광고효율이 내려갔습니다. 돈을 더 쓰기 전에 비용부터 확인해야 합니다.`,
             details: baseDetails,
             action: cur.cost < 1000 && cur.clicks <= 1
@@ -1033,174 +1008,6 @@ function MetricHelpLabel({
   );
 }
 
-
-type ExplanationGroup = {
-  tone: ComparisonExplanation["tone"];
-  meta: (typeof EXPLANATION_TONE_META)[ComparisonExplanation["tone"]];
-  items: ComparisonExplanation[];
-};
-
-const groupExplanations = (items: ComparisonExplanation[]): ExplanationGroup[] =>
-  EXPLANATION_TONE_ORDER.map((tone) => ({
-    tone,
-    meta: EXPLANATION_TONE_META[tone],
-    items: items.filter((item) => item.tone === tone),
-  })).filter((group) => group.items.length > 0);
-
-function detailParts(detail: string) {
-  const index = detail.indexOf(":");
-  if (index <= 0 || index > 8) return { label: "근거", text: detail };
-  return {
-    label: detail.slice(0, index),
-    text: detail.slice(index + 1).trim(),
-  };
-}
-
-const isConclusionDetail = (detail: string) => detail.trim().startsWith("결론:");
-
-function conclusionText(item: ComparisonExplanation) {
-  const conclusion = item.details.find(isConclusionDetail);
-  return conclusion ? detailParts(conclusion).text : item.body;
-}
-
-function statParts(text: string) {
-  const parts = text.split("|").map((part) => part.trim()).filter(Boolean);
-  return parts.length >= 2 ? parts : null;
-}
-
-function detailCardClass(label: string) {
-  if (label.includes("현재") || label.includes("평균") || label.includes("흐름")) {
-    return "border-slate-200 bg-white";
-  }
-  if (label.includes("세부")) return "border-sky-100 bg-sky-50/70";
-  return "border-white/80 bg-white/75";
-}
-function ActionRecommendationPanel({
-  title,
-  subtitle,
-  grouped,
-  bidDataReady,
-}: {
-  title: string;
-  subtitle: string;
-  grouped: ExplanationGroup[];
-  bidDataReady: boolean;
-}) {
-  if (grouped.length === 0) return null;
-
-  return (
-    <details className={CARD_CLASS} open>
-      <summary className="mb-4 flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-          <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
-        </div>
-        <span aria-hidden="true" className="rounded-full bg-[#F6F8FB] px-3 py-1 text-xs font-semibold text-slate-500">⌄</span>
-      </summary>
-      <div className="space-y-4">
-        {!bidDataReady && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <div className="text-sm font-bold text-amber-900">입찰가 계산 불가</div>
-            <p className="mt-1 text-sm leading-6 text-amber-800">
-              현재 선택기간 마지막 날에 입찰가 데이터가 없어 현재가와 추천가를 계산하지 못합니다. D열 현재 입찰가가 포함된 파일을 다시 업로드하면 마지막 날 평균 입찰가와 조정 후 금액이 표시됩니다.
-            </p>
-          </div>
-        )}
-        {grouped.map((group) => (
-          <section key={group.tone} className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
-              <span className={`h-2 w-2 rounded-full ${group.meta.dotClass}`} />
-              <h4 className="text-xs font-semibold text-slate-700">{group.meta.label}</h4>
-              <span className="rounded-full bg-[#F6F8FB] px-2 py-0.5 text-[11px] font-medium text-slate-400">
-                {group.items.length}개
-              </span>
-            </div>
-            <div className="grid gap-2">
-              {group.items.map((item, index) => {
-                const toneMeta = EXPLANATION_TONE_META[item.tone];
-                const actionParts = actionDisplayParts(item);
-                const conclusion = conclusionText(item);
-                const evidenceDetails = item.details.filter((detail) => !isConclusionDetail(detail));
-                return (
-                  <details
-                    key={`${item.title}-${index}`}
-                    className={`group rounded-xl border ${toneMeta.cardClass}`}
-                  >
-                    <summary className="cursor-pointer list-none px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={`rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold ${toneMeta.labelClass}`}>
-                              {toneMeta.badge}
-                            </span>
-                            <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                              {actionParts.actionType}
-                            </span>
-                          </div>
-                          <div className="mt-1.5 break-words text-sm font-semibold leading-6 text-slate-900">
-                            {actionParts.target}
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-xs font-semibold text-slate-400">
-                          자세히 보기 <span aria-hidden="true" className="inline-block transition group-open:rotate-180">⌄</span>
-                        </span>
-                      </div>
-                    </summary>
-                    <div className="border-t border-white/70 px-4 pb-4 pt-3">
-                      <div className="rounded-lg border border-white/80 bg-white/90 px-3 py-2.5">
-                        <div className="text-[11px] font-semibold text-slate-400">결론</div>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{conclusion}</p>
-                      </div>
-                      <div className="mt-3 rounded-lg border border-white/80 bg-white/90 px-3 py-2.5">
-                        <div className={`text-[11px] font-semibold ${toneMeta.labelClass}`}>조정 방향</div>
-                        <div className="mt-1 space-y-2">
-                          {item.action.split("\n").map((line, lineIndex) =>
-                            lineIndex === 0 ? (
-                              <p key={lineIndex} className="text-sm font-semibold leading-6 text-slate-900">
-                                {line}
-                              </p>
-                            ) : (
-                              <p key={lineIndex} className="inline-flex max-w-full rounded-md bg-white/80 px-2.5 py-1.5 text-xs font-semibold leading-5 text-slate-800 ring-1 ring-slate-200">
-                                {line}
-                              </p>
-                            ),
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-3 grid gap-2 md:grid-cols-2">
-                        {evidenceDetails.map((detail, detailIndex) => {
-                          const parts = detailParts(detail);
-                          const stats = statParts(parts.text);
-                          const isWideDetail = parts.label.includes("세부");
-                          return (
-                            <div key={detailIndex} className={`rounded-lg border px-3 py-2.5 ${isWideDetail ? "md:col-span-2" : ""} ${detailCardClass(parts.label)}`}>
-                              <div className="text-[11px] font-semibold text-slate-400">{parts.label}</div>
-                              {stats ? (
-                                <div className={`mt-2 grid gap-1.5 ${isWideDetail ? "" : "sm:grid-cols-2"}`}>
-                                  {stats.map((stat, statIndex) => (
-                                    <span key={statIndex} className="rounded-md bg-slate-50 px-2.5 py-1.5 text-xs font-semibold leading-5 text-slate-700">
-                                      {stat}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="mt-1 text-xs leading-5 text-slate-600">{parts.text}</p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </details>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
-    </details>
-  );
-}
 
 export function DashboardClient({ data }: { data: DashboardData }) {
   const allDates = [...new Set(data.rows.map(rowDate))].sort();
@@ -1434,13 +1241,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const baseDates = allDates.slice(Math.max(0, firstSelIdx - k), firstSelIdx);
   const baseSet = new Set(baseDates);
   const baseRows = data.rows.filter((r) => baseSet.has(rowDate(r)));
-  const basePeriodText =
-    baseDates.length === 0
-      ? "없음"
-      : baseDates[0] === baseDates[baseDates.length - 1]
-        ? fmtDate(baseDates[0])
-        : `${fmtDate(baseDates[0])} - ${fmtDate(baseDates[baseDates.length - 1])}`;
-
   const o = agg(currentRows);
   const base = baseRows.length ? agg(baseRows) : null;
   const byCategory = byCatOf(currentRows);
@@ -1454,7 +1254,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     currentRows,
     data.rows,
   );
-  const groupedDashboardExplanations = groupExplanations(dashboardActionExplanations);
   const latestCurrentDate = latestDateOf(currentRows);
   const hasCurrentBidData = currentRows.some(
     (row) =>
@@ -1776,8 +1575,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       <ActionRecommendationPanel
         title="광고 조정 추천"
-        subtitle={`${periodText} 기준 · 전체 과거 흐름과 최근 7일, 직전 기간 ${basePeriodText}를 함께 보고 줄일 광고비와 옮길 곳을 보여줍니다.`}
-        grouped={groupedDashboardExplanations}
+        periodText={periodText}
+        items={dashboardActionExplanations}
         bidDataReady={hasCurrentBidData}
       />
       </div>
