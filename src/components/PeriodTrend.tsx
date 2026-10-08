@@ -33,8 +33,8 @@ export function PeriodTrend({ rows, dates, periodText }: {
   ];
 
   return (
-    <section className="rounded-[15px] bg-white p-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:p-6" aria-label="기간 내 추이">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <section className="rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5" aria-label="기간 내 추이">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-semibold text-slate-800">기간 내 추이</h3>
           <p className="mt-1 text-xs text-slate-400">{periodText} · 전체</p>
@@ -51,11 +51,13 @@ export function PeriodTrend({ rows, dates, periodText }: {
       </header>
 
       {categories ? (
-        <div className="my-6 flex items-center justify-between gap-4">
+        <div className="my-3 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs text-slate-500">기간 총 {cfg.label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{cfg.format(period[metric])}</p>
-            <p className="mt-1 text-[11px] text-slate-400">전체 {series.length}개 카테고리</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <p className="text-xl font-bold tabular-nums text-slate-900">{cfg.format(period[metric])}</p>
+              <p className="text-[11px] text-slate-400">전체 {series.length}개 카테고리</p>
+            </div>
           </div>
           <label className="flex flex-col gap-1.5 text-[11px] text-slate-400">지표
             <select value={metric} aria-label="카테고리 비교 지표" onChange={(event) => setMetric(event.target.value as TrendMetric)}
@@ -65,21 +67,21 @@ export function PeriodTrend({ rows, dates, periodText }: {
           </label>
         </div>
       ) : (
-        <div className="my-6 flex flex-wrap items-start gap-x-8 gap-y-4">
+        <div className="my-3 flex flex-wrap items-start gap-x-6 gap-y-2">
           {stats.map((stat) => (
             <div key={stat.name}>
               <p className="flex items-center gap-1.5 text-xs text-slate-500">
                 {stat.color && <i aria-hidden="true" className={stat.line ? "h-[2px] w-4" : "h-2.5 w-2.5 rounded-sm"} style={{ backgroundColor: stat.color }} />}
                 {stat.name}
               </p>
-              <p className="mt-1.5 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl">{stat.value}</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{stat.value}</p>
             </div>
           ))}
         </div>
       )}
       <p className="mb-1 text-[11px] text-slate-400">{categories && metric === "conversions" ? "전환 · 개" : "금액 · 원"}</p>
       {dates.length <= 1 ? (
-        <p className="flex h-[380px] items-center justify-center text-center text-sm text-slate-400">
+        <p className="flex h-[140px] items-center justify-center text-center text-sm text-slate-400">
           추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {dates.length}일)
         </p>
       ) : (
@@ -90,7 +92,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
 
       {selected && (
         <>
-          <div className="mb-3 mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-2 mt-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold text-slate-700">{categories ? `선택일 카테고리별 ${cfg.label}` : "날짜별 상세 수치"}</p>
             <label className="flex items-center gap-2 text-[11px] text-slate-400">선택 날짜
               <select value={date} aria-label="추이 상세 날짜" onChange={(event) => setSelectedDate(event.target.value)}
@@ -108,22 +110,24 @@ export function PeriodTrend({ rows, dates, periodText }: {
                     onClick={() => setHighlightedKey(item.key)}
                     onMouseEnter={() => setHighlightedKey(item.key)} onMouseLeave={() => setHighlightedKey(null)}
                     onFocus={() => setHighlightedKey(item.key)} onBlur={() => setHighlightedKey(null)}
-                    className="flex h-full w-full min-w-0 flex-col rounded-lg bg-slate-50 p-2.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400">
+                    className="flex h-full w-full min-w-0 flex-col rounded-lg bg-slate-50 p-2 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400">
                     <span className="flex w-full min-w-0 items-center gap-1.5 text-[11px] text-slate-600">
                       <i aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
                       <span className="truncate" title={item.name}>{item.name}</span>
                     </span>
-                    <span className="mt-2 w-full break-all text-sm font-semibold tabular-nums text-slate-800">
+                    <span className="mt-1 w-full break-all text-sm font-semibold tabular-nums text-slate-800">
                       {cfg.format(Number(selected[item.key]))}
                     </span>
-                    <span className="mt-1.5 text-[11px] text-slate-400">기간 합계</span>
-                    <span className="mt-0.5 w-full break-all text-[11px] tabular-nums text-slate-500">{cfg.format(item.total)}</span>
+                    <span className="mt-1 flex w-full flex-wrap gap-x-1 text-[11px]">
+                      <span className="text-slate-400">기간 합계</span>
+                      <span className="break-all tabular-nums text-slate-500">{cfg.format(item.total)}</span>
+                    </span>
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 text-xs sm:grid-cols-4" aria-live="polite">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-100 pt-2 text-xs sm:grid-cols-4" aria-live="polite">
               {[
                 ["매출", fmtWon(selected.conversionValue)], ["광고비", fmtWon(selected.cost)],
                 ["전환", `${fmtInt(selected.conversions)}개`], ["ROAS", fmtRoas(selected.roas)],

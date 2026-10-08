@@ -91,17 +91,17 @@ export function TrendChart({ data, series, mode, valueFmt, metricLabel, isCount,
 }) {
   const categories = mode === "categories";
   return (
-    <div className="h-[380px] w-full min-w-0" role="img"
+    <div className="h-[200px] w-full min-w-0 sm:h-[260px]" role="img"
       aria-label={categories ? `날짜별 총 ${metricLabel}와 카테고리별 기여도 누적 막대그래프` : "광고비 막대와 매출 선을 같은 원화 눈금으로 표시한 전체 성과 그래프"}>
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-        <ComposedChart data={data} margin={{ top: 28, right: 8, bottom: 4, left: 0 }}
+        <ComposedChart data={data} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}
           onClick={(state) => {
             const point = data.find((d) => d.date === state.activeLabel);
             if (point) onSelectDate(point.date);
           }}>
           <CartesianGrid stroke="#F1F5F9" vertical={false} />
           <XAxis dataKey="date" tickFormatter={(value) => String(value).slice(5).replace("-", ".")} tick={{ fontSize: 11, fill: "#94A3B8" }}
-            tickLine={false} axisLine={{ stroke: "#E2E8F0" }} minTickGap={20} />
+            tickLine={false} axisLine={{ stroke: "#E2E8F0" }} minTickGap={20} height={24} />
           <YAxis domain={[0, "auto"]} width={48} tick={{ fontSize: 11, fill: "#94A3B8" }}
             tickLine={false} axisLine={false} allowDecimals={!isCount}
             tickFormatter={(v) => compactTrendValue(Number(v), categories && isCount)} />
