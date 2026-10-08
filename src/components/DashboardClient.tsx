@@ -1208,7 +1208,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <>
+    <div className="dashboard-viewport">
       {/* 상단 바: 제목 + 기간 선택(우측). 변화분석/네비/로그아웃은 사이드바 */}
       <TopBar title="Analytics Dashboard" contentClassName="px-4 py-[18px] md:px-8">
         {/* 기간 범위 선택 (달력 하나) */}
@@ -1226,7 +1226,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       </TopBar>
 
       {/* 본문 */}
-      <div className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
+      <main className="dashboard-scroll" aria-label="대시보드 섹션" tabIndex={0}>
       {!data.configured && (
         <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
       )}
@@ -1238,14 +1238,18 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
 
-      <section className="space-y-3" aria-label="성과 요약">
-      {/* 상단 카드: ROAS */}
-        <div className="flex items-center gap-4 rounded-[15px] bg-white px-5 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)]">
-            <span className="text-sm font-medium text-slate-500">ROAS</span>
-          <div className="text-3xl font-bold tabular-nums text-slate-900">
-            {fmtRoas(o.roas)}
-          </div>
+      <div className="dashboard-screen dashboard-summary">
+      <section className="flex flex-1 flex-col gap-3" aria-label="성과 요약">
+      <div className="roas-hero" aria-label="전체 광고 성과 ROAS">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-medium text-slate-300"><span className="h-2 w-2 rounded-full bg-[#03C75A]" aria-hidden="true" />전체 광고 성과 · ROAS</p>
+          <p className="roas-number">{o.cost > 0 ? fmtRoas(o.roas) : "—"}</p>
         </div>
+        <div className="roas-context">
+          <span className="text-xs text-slate-400">광고비 대비 발생한 매출</span>
+          <p className="mt-2 text-sm font-medium text-white">{o.cost > 0 ? <>광고비 <span className="text-slate-300">1원</span><span aria-hidden="true" className="mx-3 text-[#03C75A]">→</span>매출 <strong className="text-xl text-[#6FE5A3]">{o.roas.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원</strong></> : "광고비 데이터 없음"}</p>
+        </div>
+      </div>
 
       {/* 카테고리 비중 도넛 카드 3개 */}
       <div className="grid gap-3 lg:grid-cols-3">
@@ -1322,12 +1326,14 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </BreakdownCard>
       </div>
       </section>
+      </div>
 
       {/* 전체 성과와 카테고리 기여도를 비교하는 기간 추이 */}
       {data.hasData && (
-        <PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} />
+        <div className="dashboard-screen dashboard-trend"><PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} /></div>
       )}
 
+      <div className="dashboard-screen dashboard-flow">
       <FunnelFlow
         currentRows={currentRows}
         baseRows={baseRows}
@@ -1336,6 +1342,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         periodText={periodText}
       />
 
+      </div>
+      <div className="dashboard-screen dashboard-recommendations">
       <ActionRecommendationPanel
         title="광고 조정 추천"
         periodText={periodText}
@@ -1343,7 +1351,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         bidDataReady={hasCurrentBidData}
       />
       </div>
-    </>
+      </main>
+    </div>
   );
 }
 

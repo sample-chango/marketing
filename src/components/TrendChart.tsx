@@ -91,7 +91,7 @@ export function TrendChart({ data, series, mode, valueFmt, metricLabel, isCount,
 }) {
   const categories = mode === "categories";
   return (
-    <div className="h-[200px] w-full min-w-0 sm:h-[260px]" role="img"
+    <div className="trend-chart h-[200px] w-full min-w-0 sm:h-[260px]" role="img"
       aria-label={categories ? `날짜별 총 ${metricLabel}와 카테고리별 기여도 누적 막대그래프` : "광고비 막대와 매출 선을 같은 원화 눈금으로 표시한 전체 성과 그래프"}>
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <ComposedChart data={data} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}

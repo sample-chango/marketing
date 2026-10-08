@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { fmtRoas, fmtWon } from "@/lib/metrics";
 import { adjustedBidRange, adjustmentPercent, shortRecommendationName, type ComparisonExplanation } from "@/lib/recommendation-display";
 
@@ -53,7 +53,7 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
   const groups = GROUPS.map((group) => ({ ...group, items: items.filter((item) => item.tone === group.tone) })).filter((group) => group.items.length > 0);
 
   return (
-    <section aria-label={title} className="rounded-[15px] bg-white px-4 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
+    <section aria-label={title} className="recommendation-card rounded-[15px] bg-white px-4 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
       <header className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 className="text-base font-semibold text-slate-800">{title}</h3>
@@ -72,14 +72,14 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
           </span>
         </p>
       )}
-      <div className={`grid items-start gap-3 ${groups.length === 1 ? "" : groups.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+      <div className={`recommendation-groups grid items-start gap-3 ${groups.length === 1 ? "" : groups.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         {groups.map((group) => (
-          <section key={group.tone} aria-label={group.label} className="min-w-0">
+          <section key={group.tone} aria-label={group.label} className="recommendation-group min-w-0">
             <h4 className={`mb-2 flex items-center gap-1.5 text-xs font-semibold ${group.accent}`}>
               <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded ${group.background}`}>{group.icon}</span>
               {group.label}<span className="ml-auto text-[11px] font-medium text-slate-400">{group.items.length}개</span>
             </h4>
-            <div className="grid gap-1">
+            <div className="recommendation-items grid gap-1" style={{ "--recommendation-rows": Math.max(...groups.map((item) => item.items.length)) } as CSSProperties}>
               {group.items.map((item, index) => {
                 const name = shortRecommendationName(item.target ?? item.title);
                 const adjustment = item.adjustment;

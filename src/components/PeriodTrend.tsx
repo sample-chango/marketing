@@ -33,7 +33,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
   ];
 
   return (
-    <section className="rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5" aria-label="기간 내 추이">
+    <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="기간 내 추이">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-semibold text-slate-800">기간 내 추이</h3>
@@ -80,6 +80,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
         </div>
       )}
       <p className="mb-1 text-[11px] text-slate-400">{categories && metric === "conversions" ? "전환 · 개" : "금액 · 원"}</p>
+      <div className="trend-plot-area">
       {dates.length <= 1 ? (
         <p className="flex h-[140px] items-center justify-center text-center text-sm text-slate-400">
           추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {dates.length}일)
@@ -90,6 +91,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
           selectedDate={date} highlightedKey={highlightedKey} onSelectDate={setSelectedDate} />
       )}
 
+      </div>
       {selected && (
         <>
           <div className="mb-2 mt-2 flex flex-wrap items-center justify-between gap-2">

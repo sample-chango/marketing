@@ -60,7 +60,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
   };
 
   return (
-    <section aria-label="광고 성과 흐름" className="rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
+    <section aria-label="광고 성과 흐름" className="funnel-flow-card rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="text-base font-semibold text-slate-800">광고가 구매로 이어지는 흐름</h3><p className="mt-1 text-[11px] text-slate-400">{periodText}</p></div>
         <label className="flex items-center gap-2 text-[11px] text-slate-400">카테고리
@@ -69,7 +69,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
           </select>
         </label>
       </header>
-      <div role="group" aria-label="확인할 광고 단계" className="grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-center gap-x-1 gap-y-2 md:grid-cols-[minmax(0,1fr)_48px_minmax(0,1fr)_48px_minmax(0,1fr)_18px_minmax(0,1fr)]">
+      <div role="group" aria-label="확인할 광고 단계" className="flow-stages grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-center gap-x-1 gap-y-2 md:grid-cols-[minmax(0,1fr)_48px_minmax(0,1fr)_48px_minmax(0,1fr)_18px_minmax(0,1fr)]">
         {FLOW_STAGES.map((item, index) => <Fragment key={item.key}>
           <button type="button" aria-pressed={stage === item.key} onClick={() => setStage(item.key)}
             className={`flex h-full min-w-0 flex-col gap-1 rounded-xl border px-3 py-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${stage === item.key ? "border-slate-600 bg-white" : "border-slate-100 bg-slate-50 hover:bg-slate-100"}`}>
