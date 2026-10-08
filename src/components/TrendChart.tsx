@@ -17,7 +17,7 @@ export interface TrendSeries {
   color: string;
 }
 
-/** 기간 내 일자별 추이 (평균값이 낮은 시리즈부터 쌓는 영역 차트) */
+/** 기간 내 일자별 추이 (각 시리즈의 실제 값을 0 기준으로 표시) */
 export function TrendChart({
   data,
   series,
@@ -57,6 +57,7 @@ export function TrendChart({
             axisLine={{ stroke: "#e2e8f0" }}
           />
           <YAxis
+            domain={[0, "auto"]}
             width={56}
             tick={{ fontSize: 11, fill: "#94a3b8" }}
             tickLine={false}
@@ -77,7 +78,7 @@ export function TrendChart({
               dataKey={s.key}
               name={s.name}
               legendType="square"
-              stackId="trend"
+              baseValue={0}
               stroke={s.color}
               strokeWidth={1}
               fill={s.color}
