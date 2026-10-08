@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -17,7 +17,7 @@ export interface TrendSeries {
   color: string;
 }
 
-/** 기간 내 일자별 추이 (단일/다중 시리즈) */
+/** 기간 내 일자별 추이 (평균값이 낮은 시리즈부터 쌓는 영역 차트) */
 export function TrendChart({
   data,
   series,
@@ -36,11 +36,19 @@ export function TrendChart({
   }
 
   const multi = series.length > 1;
+  const sortedSeries = series
+    .map((s) => ({
+      ...s,
+      average:
+        data.reduce((sum, point) => sum + Number(point[s.key] ?? 0), 0) /
+        data.length,
+    }))
+    .sort((a, b) => a.average - b.average);
 
   return (
     <div className="h-[280px] w-full min-w-0 overflow-hidden">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 16, bottom: 4, left: 4 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 16, bottom: 4, left: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
           <XAxis
             dataKey="label"
@@ -61,21 +69,25 @@ export function TrendChart({
             labelStyle={{ color: "#475569" }}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
-          {multi && <Legend wrapperStyle={{ fontSize: 11 }} />}
-          {series.map((s) => (
-            <Line
+          {multi && <Legend itemSorter={null} wrapperStyle={{ fontSize: 11 }} />}
+          {sortedSeries.map((s) => (
+            <Area
               key={s.key}
-              type="monotone"
+              type="linear"
               dataKey={s.key}
               name={s.name}
+              legendType="square"
+              stackId="trend"
               stroke={s.color}
-              strokeWidth={2.2}
-              dot={{ r: 2.5, fill: s.color }}
-              activeDot={{ r: 5 }}
+              strokeWidth={0.44}
+              fill={s.color}
+              fillOpacity={0.16}
+              dot={false}
+              activeDot={false}
               isAnimationActive={false}
             />
           ))}
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
