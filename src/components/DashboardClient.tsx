@@ -19,20 +19,11 @@ import {
   type DerivedMetrics,
 } from "@/lib/metrics";
 import { CategoryDonut } from "@/components/CategoryDonut";
-import { TrendChart } from "@/components/TrendChart";
+import { PeriodTrend } from "@/components/PeriodTrend";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
 type Filter = CategorySlug | "all";
-type MetricKey =
-  | "impressions"
-  | "clicks"
-  | "cost"
-  | "conversions"
-  | "conversionValue"
-  | "roas";
-
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
-const mmdd = (iso: string) => iso.slice(5).replace("-", ".");
 const fmtAvgCount = (n: number) =>
   n.toLocaleString("ko-KR", {
     maximumFractionDigits: 1,
@@ -123,33 +114,7 @@ const PRIMARY: Record<
   revenue: { label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon },
 };
 
-const TREND_METRICS: {
-  key: MetricKey;
-  label: string;
-  pick: (m: DerivedMetrics) => number;
-  fmt: (n: number) => string;
-  color: string;
-}[] = [
-  { key: "impressions", label: "노출수", pick: (m) => m.impressions, fmt: fmtInt, color: BRAND.blue },
-  { key: "clicks", label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt, color: BRAND.green },
-  { key: "cost", label: "광고비", pick: (m) => m.cost, fmt: fmtWon, color: BRAND.violet },
-  { key: "conversions", label: "전환", pick: (m) => m.conversions, fmt: fmtInt, color: BRAND.purple },
-  { key: "conversionValue", label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon, color: BRAND.mint },
-  { key: "roas", label: "ROAS", pick: (m) => m.roas, fmt: fmtRoas, color: BRAND.cyan },
-];
-
 const CHANGE_ANALYSIS_STORAGE_KEY = "marketing-change-analysis-ranges";
-
-const PRODUCT_PALETTE = [
-  BRAND.green,
-  BRAND.mint,
-  BRAND.cyan,
-  BRAND.blue,
-  BRAND.violet,
-  BRAND.purple,
-  "#4F46E5",
-  "#0EA5E9",
-];
 
 const CHANGE_COLS: {
   label: string;
@@ -1249,8 +1214,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [rangeEnd, setRangeEnd] = useState(latest);
   const [cat, setCat] = useState<Filter>("all");
   const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
-  const [trendKey, setTrendKey] = useState<MetricKey>("conversionValue");
-  const [trendByCat, setTrendByCat] = useState(true);
   const { showChange } = useChangeAnalysis();
   const [costDetailOpen, setCostDetailOpen] = useState(false);
   const [analysisAStart, setAnalysisAStart] = useState(previous);
@@ -1536,81 +1499,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       color: CATEGORY_COLORS[c.slug],
     }));
 
-  // 기간 내 일자별 추이
-  const trendCfg = TREND_METRICS.find((t) => t.key === trendKey)!;
-  const datesInRange = allDates.filter((d) => d >= rs && d <= re);
-  const rowName = (r: MetricRow) =>
-    r.keyword ?? r.ad_group ?? r.campaign ?? "-";
-  const shortName = (s: string) => (s.length > 18 ? s.slice(0, 18) + "…" : s);
-
-  // 전체 탭 → 카테고리별 라인 / 특정 카테고리 탭 → 제품(상품)별 라인 / 그 외 → 단일
-  const showCatLines = cat === "all" && trendByCat;
-  const showProductLines = cat !== "all" && trendByCat;
-
-  // 제품별: 선택 지표 기준 상위 6개 상품
-  const productNames: string[] = [];
-  if (showProductLines) {
-    const byName = new Map<string, MetricRow[]>();
-    for (const r of rows) {
-      const n = rowName(r);
-      if (!byName.has(n)) byName.set(n, []);
-      byName.get(n)!.push(r);
-    }
-    productNames.push(
-      ...[...byName.entries()]
-        .map(([n, rs2]) => ({ n, v: trendCfg.pick(agg(rs2)) }))
-        .sort((a, b) => b.v - a.v)
-        .slice(0, 6)
-        .map((p) => p.n),
-    );
-  }
-
-  const trendSeries: { key: string; name: string; color: string }[] = showCatLines
-    ? [...byCategory]
-        .map((c) => ({ c, v: trendCfg.pick(c.metrics) }))
-        .sort((a, b) => b.v - a.v)
-        .map(({ c }) => ({
-          key: c.slug,
-          name: c.label,
-          color: CATEGORY_COLORS[c.slug],
-        }))
-    : showProductLines
-      ? productNames.map((n, i) => ({
-          key: `p${i}`,
-          name: shortName(n),
-          color: PRODUCT_PALETTE[i % PRODUCT_PALETTE.length],
-        }))
-      : [
-          {
-            key: "value",
-            name:
-              cat === "all"
-                ? "전체"
-                : CATEGORIES.find((c) => c.slug === cat)?.label ?? "전체",
-            color: trendCfg.color,
-          },
-        ];
-
-  const trendData: Record<string, number | string>[] = datesInRange.map((d) => {
-    const dayRows = rows.filter((r) => rowDate(r) === d);
-    const point: Record<string, number | string> = { label: mmdd(d) };
-    if (showCatLines) {
-      for (const c of CATEGORIES)
-        point[c.slug] = trendCfg.pick(
-          agg(dayRows.filter((r) => r.category === c.slug)),
-        );
-    } else if (showProductLines) {
-      productNames.forEach((n, i) => {
-        point[`p${i}`] = trendCfg.pick(
-          agg(dayRows.filter((r) => rowName(r) === n)),
-        );
-      });
-    } else {
-      point.value = trendCfg.pick(agg(dayRows));
-    }
-    return point;
-  });
-
   const days = rs && re ? daysInclusive(rs, re) : 0;
   const showPeriodAverage = days > 1;
   const effBudget = data.dailyBudget * days;
@@ -1775,65 +1663,9 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </BreakdownCard>
       </div>
 
-      {/* 기간 내 추이 (중앙) */}
+      {/* 전체 성과와 카테고리 기여도를 비교하는 기간 추이 */}
       {data.hasData && (
-        <div className={CARD_CLASS}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold text-slate-800">
-              기간 내 추이{" "}
-              <span className="text-sm font-normal text-slate-400">
-                {periodText} · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
-              </span>
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-md bg-[#EEF2F6] shadow-[0_1px_4px_rgba(66,80,102,0.03)]">
-                <button
-                  onClick={() => setTrendByCat(false)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    !trendByCat ? "bg-[#465466] text-white" : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
-                  }`}
-                >
-                  합산
-                </button>
-                <button
-                  onClick={() => setTrendByCat(true)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    trendByCat ? "bg-[#465466] text-white" : "text-[#4F5B6A] hover:bg-[#E4EAF1]"
-                  }`}
-                >
-                  {cat === "all" ? "카테고리별" : "제품별"}
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {TREND_METRICS.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setTrendKey(t.key)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                      trendKey === t.key
-                        ? ACTIVE_CHIP_CLASS
-                        : IDLE_CHIP_CLASS
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          {datesInRange.length <= 1 ? (
-            <p className="py-10 text-center text-sm text-slate-400">
-              추이를 보려면 기간을 2일 이상으로 선택하세요. (현재 {datesInRange.length}일)
-            </p>
-          ) : (
-            <TrendChart
-              key={`${cat}-${trendByCat}-${trendKey}`}
-              data={trendData}
-              series={trendSeries}
-              valueFmt={trendCfg.fmt}
-            />
-          )}
-        </div>
+        <PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} />
       )}
 
       {/* 카테고리 탭 + 퍼널 + 상세 분석 */}
