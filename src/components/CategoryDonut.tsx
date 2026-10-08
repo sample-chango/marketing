@@ -37,7 +37,7 @@ export function CategoryDonut({
   valueFormatter?: (value: number) => string;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(280);
+  const [{ width, height }, setSize] = useState({ width: 280, height: CHART_HEIGHT });
   const [pinnedLabel, setPinnedLabel] = useState<string | null>(null);
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
 
@@ -45,7 +45,9 @@ export function CategoryDonut({
     const element = chartRef.current;
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry.contentRect.width > 0) setWidth(entry.contentRect.width);
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
     });
     observer.observe(element);
     return () => observer.disconnect();
@@ -58,9 +60,10 @@ export function CategoryDonut({
     ? data.find((slice) => slice.label === selectedLabel) ?? data[0]
     : undefined;
   const cx = width / 2;
-  const cy = CHART_HEIGHT / 2;
-  const radius = Math.max(40, Math.min(72, width / 2 - 24));
-  const inner = Math.max(25, radius - 34);
+  const cy = height / 2;
+  const radius = Math.max(40, Math.min(height / 2 - 18, width / 2 - 12));
+  const inner = radius * (38 / 72);
+  const bubbleSize = Math.max(62, Math.min(78, 62 * radius / 72));
   const segments = data.map((slice, index) => {
     const start = total > 0
       ? data.slice(0, index).reduce((sum, previous) => sum + previous.value, 0) / total * Math.PI * 2
@@ -72,15 +75,15 @@ export function CategoryDonut({
   const middle = selectedSegment && selectedSegment.share > 0
     ? (selectedSegment.start + selectedSegment.end) / 2
     : Math.PI / 4;
-  const bubbleX = Math.max(32, Math.min(width - 32, cx + Math.sin(middle) * (radius + 1)));
-  const bubbleY = Math.max(32, Math.min(CHART_HEIGHT - 32, cy - Math.cos(middle) * (radius + 1)));
+  const bubbleX = Math.max(bubbleSize / 2, Math.min(width - bubbleSize / 2, cx + Math.sin(middle) * (radius + 1)));
+  const bubbleY = Math.max(bubbleSize / 2, Math.min(height - bubbleSize / 2, cy - Math.cos(middle) * (radius + 1)));
 
   return (
-    <div data-category-donut={title}>
-      <div ref={chartRef} className="relative mx-auto my-1 h-[180px] w-full max-w-[280px]">
+    <div className="category-donut-root" data-category-donut={title}>
+      <div ref={chartRef} className="category-donut-chart relative mx-auto my-1 h-[180px] w-full max-w-[320px]">
         <svg
           className="block h-full w-full overflow-visible"
-          viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
+          viewBox={`0 0 ${width} ${height}`}
           role="img"
           aria-label={`${title} 항목별 비중`}
         >
@@ -114,7 +117,7 @@ export function CategoryDonut({
         {selected && (
           <div
             className="pointer-events-none absolute flex h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full bg-white shadow-[0_5px_22px_rgba(34,52,75,0.08)]"
-            style={{ left: Number(bubbleX.toFixed(3)), top: Number(bubbleY.toFixed(3)) }}
+            style={{ left: Number(bubbleX.toFixed(3)), top: Number(bubbleY.toFixed(3)), width: bubbleSize, height: bubbleSize }}
             data-donut-selection={selected.label}
           >
             <span className="max-w-[58px] text-center text-[10px] leading-tight text-slate-700">{selected.label}</span>
@@ -124,7 +127,7 @@ export function CategoryDonut({
           </div>
         )}
       </div>
-      <div className="space-y-0.5 border-t border-slate-100 pt-2" role="group" aria-label={`${title} 항목 선택`}>
+      <div className="category-donut-list space-y-0.5 border-t border-slate-100 pt-2" role="group" aria-label={`${title} 항목 선택`}>
         {segments.map((slice) => {
           const active = slice.label === selected?.label;
           return (

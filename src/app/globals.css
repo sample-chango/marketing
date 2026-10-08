@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --summary-tracking: -0.045em;
 }
 
 @theme inline {
@@ -64,7 +65,9 @@ body {
 
 .roas-hero {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
+  width: 80%;
+  margin-inline: auto;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -83,12 +86,38 @@ body {
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  letter-spacing: -0.045em;
 }
+
+.roas-number, .summary-cards {
+  font-family: var(--font-google-sans-flex);
+  letter-spacing: var(--summary-tracking);
+}
+.summary-cards :where(*) { letter-spacing: var(--summary-tracking); }
+
+.summary-cards { flex: 1; }
+.breakdown-card { display: flex; flex-direction: column; }
+.donut-holder { display: flex; flex: 1; }
+.category-donut-root { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.category-donut-chart { flex: 1; min-height: 180px; }
+.category-donut-list { flex-shrink: 0; }
 
 .roas-context { border-left: 1px solid #40524c; padding-left: 24px; }
 
 @media (min-width: 1024px) {
+  .dashboard-scroll { container-type: size; }
+  .summary-layout {
+    /* Previous cards: 180px plot + header, padding and six always-visible rows. */
+    --summary-card-base: 487px;
+    --summary-roas-min: 112px;
+    --summary-roas-original: max(var(--summary-roas-min), calc(100cqh - 44px - var(--summary-card-base)));
+    --summary-roas-height: calc(var(--summary-roas-original) * 0.8);
+  }
+  .summary-layout[data-period-average="true"] { --summary-card-base: 507px; }
+  .roas-hero { height: var(--summary-roas-height); min-height: 0; padding-block: 6px; }
+  .roas-number {
+    margin-top: 4px;
+    font-size: min(clamp(48px, 5vw, 76px), calc(var(--summary-roas-height) - 32px));
+  }
   .dashboard-scroll { scroll-snap-type: y mandatory; }
   .dashboard-screen { padding-inline: 32px; }
 
@@ -131,13 +160,22 @@ body {
 }
 
 @media (min-width: 1024px) and (max-height: 760px) {
-  .roas-hero { min-height: 90px; padding-block: 8px; }
-  .roas-number { font-size: clamp(48px, 4.1vw, 60px); }
+  .summary-layout { --summary-roas-min: 90px; }
+  .roas-number { font-size: min(clamp(48px, 4.1vw, 60px), calc(var(--summary-roas-height) - 32px)); }
+}
+
+@media (min-width: 1024px) and (pointer: coarse) {
+  .summary-layout { --summary-card-base: 559px; }
+  .summary-layout[data-period-average="true"] { --summary-card-base: 579px; }
 }
 
 @media (max-width: 639px) {
-  .roas-hero { padding: 20px; }
+  .roas-hero { min-height: 89.6px; padding: 12px 16px; gap: 8px; }
   .roas-context { border-left: 0; padding-left: 0; }
+}
+
+@media (max-width: 1023px) {
+  .category-donut-chart { flex: none; height: 216px; min-height: 216px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
