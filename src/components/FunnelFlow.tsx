@@ -33,12 +33,11 @@ function explanation(stage: FlowStage, metrics: DerivedMetrics) {
   return { label: "광고비 대비 매출", title: rate == null ? "광고비 데이터가 없어 매출 비율을 계산할 수 없어요" : `광고비 1원당 매출 약 ${approximate(rate)}원`, detail: `광고비 ${fmtWon(metrics.cost)} → 매출 ${fmtWon(metrics.conversionValue)} · 이익과는 달라요.` };
 }
 
-export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, periodText }: {
+export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays }: {
   currentRows: MetricRow[];
   baseRows: MetricRow[];
   currentDays: number;
   baseDays: number;
-  periodText: string;
 }) {
   const [category, setCategory] = useState("all");
   const [stage, setStage] = useState<FlowStage>("acquisition");
@@ -61,8 +60,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
 
   return (
     <section aria-label="전환 흐름" className="funnel-flow-card rounded-[15px] bg-[#F9F9F9] px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[11px] text-slate-400">{periodText}</p>
+      <header className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <label className="flex items-center gap-2 text-[11px] text-slate-400">카테고리
           <select aria-label="성과 흐름 카테고리" value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-slate-400">
             <option value="all">전체</option>{CATEGORIES.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
@@ -83,7 +81,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
           </div>}
         </Fragment>)}
       </div>
-      <div className="my-3 border-y border-slate-100 py-3" aria-live="polite">
+      <div className="flow-explanation my-6 border-y border-slate-200 py-5" aria-live="polite">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h4 className="text-base font-semibold text-slate-800">{selected.label}</h4>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">

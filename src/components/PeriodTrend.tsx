@@ -13,10 +13,9 @@ const METRICS: { key: TrendMetric; label: string; format: (value: number) => str
   { key: "conversions", label: "전환", format: (value) => `${fmtInt(value)}개` },
 ];
 
-export function PeriodTrend({ rows, dates, periodText }: {
+export function PeriodTrend({ rows, dates }: {
   rows: MetricRow[];
   dates: string[];
-  periodText: string;
 }) {
   const [mode, setMode] = useState<TrendMode>("overall");
   const [metric, setMetric] = useState<TrendMetric>("conversionValue");
@@ -35,10 +34,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
 
   return (
     <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-[#F9F9F9] px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-xs text-slate-400">{periodText} · 전체</p>
-        </div>
+      <header className="flex flex-wrap items-center justify-end gap-2">
         <div className="inline-flex rounded-lg bg-[#EEF2F6] p-1" aria-label="추이 분석 방식">
           {([{ key: "overall", name: "전체 성과" }, { key: "categories", name: "카테고리 비교" }] as const).map((item) => (
             <button type="button" key={item.key} aria-pressed={mode === item.key}

@@ -113,7 +113,7 @@ body {
 
 .roas-context { border-left: 1px solid #718491; padding-left: 24px; }
 
-.flow-stages > button[aria-pressed="true"] { background: var(--performance-background); }
+.flow-stages > button[aria-pressed="true"] { background: #465466; }
 .flow-stages > button[aria-pressed="true"] :is(svg, span, strong) { color: var(--color-white); }
 
 @media (min-width: 1024px) {
@@ -147,7 +147,16 @@ body {
     align-self: flex-start;
   }
 
-  .flow-stages { flex: 1; min-height: 180px; padding-block: 16px; }
+  /* Keep 80% of the flexible card height; give the rest to the explanation gaps. */
+  .flow-stages { flex: 4 1 32px; min-height: 144px; padding-block: 16px; }
+  .flow-explanation {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    margin-block: 12px;
+    padding-block: 12px;
+  }
   .flow-stages > button { justify-content: center; padding: 12px; }
   .flow-stages > button > strong { font-size: clamp(16px, calc(3.125vw - 16px), 28px); }
   .funnel-flow-card > div:last-child ol > li { padding: 16px; }

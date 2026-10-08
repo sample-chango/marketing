@@ -1163,11 +1163,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
   const days = rs && re ? daysInclusive(rs, re) : 0;
   const showPeriodAverage = days > 1;
-  const periodText = rs
-    ? rs === re
-      ? fmtDate(rs)
-      : `${fmtDate(rs)} - ${fmtDate(re)}`
-    : "기간 없음";
 
   const baseMetric = (slug: string, pick: (m: DerivedMetrics) => number) => {
     if (!byCategoryBase) return null;
@@ -1272,7 +1267,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 전체 성과와 카테고리 기여도를 비교하는 기간 추이 */}
       {data.hasData && (
-        <div className="dashboard-screen dashboard-trend" data-dashboard-title="성과 추이"><PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} /></div>
+        <div className="dashboard-screen dashboard-trend" data-dashboard-title="성과 추이"><PeriodTrend rows={currentRows} dates={selDates} /></div>
       )}
 
       <div className="dashboard-screen dashboard-flow" data-dashboard-title="전환 흐름">
@@ -1281,14 +1276,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         baseRows={baseRows}
         currentDays={selDates.length}
         baseDays={baseDates.length}
-        periodText={periodText}
       />
 
       </div>
       <div className="dashboard-screen dashboard-recommendations" data-dashboard-title="조정 추천">
       <ActionRecommendationPanel
         title="조정 추천"
-        periodText={periodText}
         items={dashboardActionExplanations}
         bidDataReady={hasCurrentBidData}
       />

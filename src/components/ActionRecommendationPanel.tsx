@@ -42,9 +42,8 @@ function BidRange({ item }: { item: ComparisonExplanation }) {
   );
 }
 
-export function ActionRecommendationPanel({ title, periodText, items, bidDataReady }: {
+export function ActionRecommendationPanel({ title, items, bidDataReady }: {
   title: string;
-  periodText: string;
   items: ComparisonExplanation[];
   bidDataReady: boolean;
 }) {
@@ -55,12 +54,7 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
 
   return (
     <section aria-label={title} className="recommendation-card rounded-[15px] bg-[#F9F9F9] px-4 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
-      <header className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[11px] text-slate-400">{periodText}</span>
-        </div>
-        {items.every((item) => item.tone === "neutral") && <span className="text-[11px] text-slate-500">비교 데이터 필요</span>}
-      </header>
+      {items.every((item) => item.tone === "neutral") && <header className="mb-2 text-[11px] text-slate-500">비교 데이터 필요</header>}
       <div className={`recommendation-groups grid items-start gap-3 ${groups.length === 1 ? "" : groups.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         {groups.map((group) => (
           <section key={group.tone} aria-label={group.label} className="recommendation-group min-w-0">
