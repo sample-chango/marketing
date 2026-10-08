@@ -1834,6 +1834,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </p>
           ) : (
             <TrendChart
+              key={`${cat}-${trendByCat}-${trendKey}`}
               data={trendData}
               series={trendSeries}
               valueFmt={trendCfg.fmt}
