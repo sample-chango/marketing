@@ -1,14 +1,12 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TopBar } from "@/components/TopBar";
 import { useChangeAnalysis } from "@/components/AppShell";
 import {
   CATEGORIES,
   CATEGORY_COLORS,
-  type CategorySlug,
 } from "@/lib/categories";
-import { FUNNEL_STAGES, type FunnelStage } from "@/lib/funnel";
 import {
   deriveMetrics,
   sumTotals,
@@ -20,11 +18,11 @@ import {
 } from "@/lib/metrics";
 import { CategoryDonut } from "@/components/CategoryDonut";
 import { PeriodTrend } from "@/components/PeriodTrend";
+import { FunnelFlow } from "@/components/FunnelFlow";
 import { ActionRecommendationPanel } from "@/components/ActionRecommendationPanel";
 import type { ComparisonExplanation } from "@/lib/recommendation-display";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
-type Filter = CategorySlug | "all";
 const fmtDate = (iso: string) => iso.replaceAll("-", ".");
 const fmtAvgCount = (n: number) =>
   n.toLocaleString("ko-KR", {
@@ -43,79 +41,6 @@ const BRAND = {
 
 const CARD_CLASS =
   "rounded-[15px] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
-const ACTIVE_CHIP_CLASS =
-  "bg-[#03C75A] text-white shadow-[0_4px_10px_-5px_rgba(3,199,90,0.14)]";
-const IDLE_CHIP_CLASS =
-  "bg-[#EEF2F6] text-[#4F5B6A] shadow-[0_1px_4px_rgba(66,80,102,0.03)] hover:bg-[#E4EAF1]";
-
-const METRIC_HELP: Record<string, { title: string; description: string }> = {
-  노출수: {
-    title: "노출수",
-    description:
-      "광고가 검색 결과나 지면에 보여진 횟수예요. 많을수록 고객에게 발견될 기회가 많다는 뜻입니다.",
-  },
-  클릭수: {
-    title: "클릭수",
-    description:
-      "광고를 본 사람 중 실제로 눌러서 상세페이지나 사이트로 들어온 횟수예요.",
-  },
-  CTR: {
-    title: "CTR",
-    description:
-      "클릭률이에요. 광고가 보여진 횟수 중 몇 번 클릭됐는지 보는 지표라, 문구나 상품 이미지가 눈길을 끄는지 판단할 때 씁니다.",
-  },
-  CPC: {
-    title: "CPC",
-    description:
-      "클릭 1번을 얻는 데 평균 얼마를 썼는지예요. 낮을수록 같은 예산으로 더 많은 방문을 만들 수 있습니다.",
-  },
-  구매: {
-    title: "구매",
-    description:
-      "광고를 통해 들어온 고객이 실제 구매 완료까지 이어진 횟수예요. 전환수와 같은 의미로 보면 됩니다.",
-  },
-  전환: {
-    title: "전환",
-    description:
-      "광고 유입 이후 구매처럼 우리가 원하는 행동이 일어난 횟수예요. 이 화면에서는 구매 완료를 중심으로 봅니다.",
-  },
-  CVR: {
-    title: "CVR",
-    description:
-      "전환율이에요. 클릭해서 들어온 사람 중 실제 구매까지 이어진 비율입니다. 방문자의 구매 의지가 좋은지 볼 때 씁니다.",
-  },
-  CPA: {
-    title: "CPA",
-    description:
-      "구매 1건을 만들기 위해 평균 얼마의 광고비를 썼는지예요. 낮을수록 전환 효율이 좋습니다.",
-  },
-  매출: {
-    title: "매출",
-    description:
-      "광고를 통해 발생한 구매 완료 매출액이에요. 광고가 실제 돈으로 얼마나 이어졌는지 보여줍니다.",
-  },
-  광고비: {
-    title: "광고비",
-    description:
-      "선택한 기간 동안 광고에 쓴 비용이에요. 매출, 구매, ROAS와 함께 봐야 효율을 판단할 수 있습니다.",
-  },
-  ROAS: {
-    title: "ROAS",
-    description:
-      "광고비 대비 매출이에요. 100%면 쓴 광고비만큼 매출이 난 것이고, 높을수록 광고 효율이 좋습니다.",
-  },
-};
-
-const PRIMARY: Record<
-  FunnelStage["key"],
-  { label: string; pick: (m: DerivedMetrics) => number; fmt: (n: number) => string }
-> = {
-  awareness: { label: "노출수", pick: (m) => m.impressions, fmt: fmtInt },
-  acquisition: { label: "클릭수", pick: (m) => m.clicks, fmt: fmtInt },
-  conversion: { label: "구매", pick: (m) => m.conversions, fmt: fmtInt },
-  revenue: { label: "매출", pick: (m) => m.conversionValue, fmt: fmtWon },
-};
-
 const CHANGE_ANALYSIS_STORAGE_KEY = "marketing-change-analysis-ranges";
 
 const CHANGE_COLS: {
@@ -977,38 +902,6 @@ function Delta({
   );
 }
 
-function MetricHelpLabel({
-  label,
-  className = "",
-}: {
-  label: string;
-  className?: string;
-}) {
-  const help = METRIC_HELP[label];
-
-  if (!help) return <span className={className}>{label}</span>;
-
-  return (
-    <span
-      className={`group relative inline-flex cursor-default items-center ${className}`}
-    >
-      {label}
-      <span
-        role="tooltip"
-        className="pointer-events-none invisible fixed bottom-4 left-4 right-4 z-50 translate-y-1 rounded-lg border border-[#DCE4EE] bg-white p-3 text-left opacity-0 shadow-[0_12px_30px_rgba(66,80,102,0.16)] transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 md:absolute md:bottom-auto md:left-0 md:right-auto md:top-full md:mt-2 md:w-64"
-      >
-        <span className="block text-xs font-semibold text-slate-800">
-          {help.title}
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-slate-500">
-          {help.description}
-        </span>
-      </span>
-    </span>
-  );
-}
-
-
 export function DashboardClient({ data }: { data: DashboardData }) {
   const allDates = [...new Set(data.rows.map(rowDate))].sort();
   const allDatesKey = allDates.join("|");
@@ -1019,8 +912,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   // 기본값: 가장 최근 1일 (전날 대비 = 최근일 vs 바로 전날). 기간은 달력으로 넓힐 수 있음
   const [rangeStart, setRangeStart] = useState(latest);
   const [rangeEnd, setRangeEnd] = useState(latest);
-  const [cat, setCat] = useState<Filter>("all");
-  const [stageKey, setStageKey] = useState<FunnelStage["key"]>("awareness");
   const { showChange } = useChangeAnalysis();
   const [costDetailOpen, setCostDetailOpen] = useState(false);
   const [analysisAStart, setAnalysisAStart] = useState(previous);
@@ -1263,34 +1154,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       Number.isFinite(row.currentBid) &&
       row.currentBid > 0,
   );
-  const current: DerivedMetrics =
-    cat === "all" ? o : byCategory.find((c) => c.slug === cat)?.metrics ?? o;
-  const rows =
-    cat === "all" ? currentRows : currentRows.filter((r) => r.category === cat);
-
-  const stage = FUNNEL_STAGES.find((s) => s.key === stageKey)!;
-  const primary = PRIMARY[stageKey];
-
-  const catBars = byCategory
-    .map((c) => ({
-      slug: c.slug,
-      label: c.label,
-      value: primary.pick(c.metrics),
-      color: CATEGORY_COLORS[c.slug],
-    }))
-    .sort((a, b) => b.value - a.value);
-  const catMax = Math.max(1, ...catBars.map((b) => b.value));
-
-  // 제품명 기준으로 묶어 기간 내 일자별 행을 합산 (동일 상품이 날짜마다 중복되지 않도록)
-  const topRows = [...groupByName(rows).values()]
-    .map((rs) => {
-      const dm = agg(rs);
-      return { r: rs[0], dm, v: primary.pick(dm) };
-    })
-    .sort((a, b) => b.v - a.v)
-    .slice(0, 10);
-  const topMax = Math.max(1, ...topRows.map((t) => t.v));
-
   const slicesOf = (pick: (m: DerivedMetrics) => number) =>
     byCategory.map((c) => ({
       label: c.label,
@@ -1465,113 +1328,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         <PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} />
       )}
 
-      {/* 카테고리 탭 + 퍼널 + 상세 분석 */}
-      <section className="rounded-[15px] bg-white p-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5" aria-label="카테고리 및 상품 분석">
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          <Tab active={cat === "all"} onClick={() => setCat("all")}>
-            전체
-          </Tab>
-          {CATEGORIES.map((c) => (
-            <Tab key={c.slug} active={cat === c.slug} onClick={() => setCat(c.slug)}>
-              {c.label}
-            </Tab>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-          {FUNNEL_STAGES.map((s, i) => {
-            const selected = s.key === stageKey;
-            return (
-              <Fragment key={s.key}>
-                <button
-                  onClick={() => setStageKey(s.key)}
-                  className={`flex min-w-0 flex-col rounded-[15px] border text-left transition ${
-                    selected
-                      ? "border-[#03C75A] bg-[#F4FFF8]"
-                      : "border-transparent bg-[#EEF2F6] hover:bg-[#E4EAF1] hover:shadow-[0_4px_10px_rgba(66,80,102,0.04)]"
-                  }`}
-                >
-                  <div
-                    className={`rounded-t-[14px] px-3 py-1.5 text-center text-sm font-semibold ${
-                      selected
-                        ? "bg-[#03C75A] text-white"
-                        : "bg-[#E4EAF1] text-[#4F5B6A]"
-                    }`}
-                  >
-                    {s.label}
-                  </div>
-                  <div
-                    className={`flex-1 space-y-1.5 rounded-b-[14px] px-3 py-2.5 ${
-                      selected ? "bg-[#F4FFF8]" : "bg-[#F6F8FB]"
-                    }`}
-                  >
-                    {s.metrics.map((m) => (
-                      <div
-                        key={m.label}
-                        className="flex items-center justify-between gap-2 text-left"
-                      >
-                        <div className="text-xs text-slate-500">
-                          <MetricHelpLabel label={m.label} />
-                        </div>
-                        <div className="shrink-0 text-right text-sm font-bold tabular-nums text-slate-800">
-                          {m.value(current)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </button>
-                {i < FUNNEL_STAGES.length - 1 && (
-                  <div className="hidden items-center justify-center px-1 text-lg text-slate-300 md:flex">
-                    ▶
-                  </div>
-                )}
-              </Fragment>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2 md:gap-6">
-          <div className="min-w-0">
-            <h3 className="mb-2 text-sm font-semibold text-slate-700">
-              카테고리별 <MetricHelpLabel label={primary.label} />
-            </h3>
-            <div>
-              <MetricRankList
-                items={catBars.map((b) => ({
-                  key: b.slug,
-                  label: b.label,
-                  value: b.value,
-                  color: b.color,
-                  active: cat === b.slug,
-                  onClick: () => setCat(b.slug),
-                }))}
-                maxValue={catMax}
-                valueFormatter={primary.fmt}
-                showIndex={false}
-              />
-            </div>
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="mb-2 text-sm font-semibold text-slate-700">
-              <MetricHelpLabel label={primary.label} /> 상위 상품{" "}
-              <span className="font-normal text-slate-400">
-                · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
-              </span>
-            </h3>
-            <MetricRankList
-              items={topRows.map((t, i) => ({
-                key: `${t.r.keyword ?? t.r.ad_group ?? t.r.campaign ?? "row"}-${i}`,
-                label: t.r.keyword ?? t.r.ad_group ?? t.r.campaign ?? "-",
-                value: t.v,
-                color: CATEGORY_COLORS[t.r.category] ?? "#94a3b8",
-              }))}
-              maxValue={topMax}
-              valueFormatter={primary.fmt}
-            />
-          </div>
-        </div>
-      </section>
+      <FunnelFlow
+        currentRows={currentRows}
+        baseRows={baseRows}
+        currentDays={selDates.length}
+        baseDays={baseDates.length}
+        periodText={periodText}
+      />
 
       <ActionRecommendationPanel
         title="광고 조정 추천"
@@ -1827,76 +1590,6 @@ function ChangeRow({
   );
 }
 
-function MetricRankList({
-  items,
-  maxValue,
-  valueFormatter,
-  showIndex = true,
-}: {
-  items: {
-    key: string;
-    label: string;
-    value: number;
-    color: string;
-    active?: boolean;
-    onClick?: () => void;
-  }[];
-  maxValue: number;
-  valueFormatter: (value: number) => string;
-  showIndex?: boolean;
-}) {
-  if (items.length === 0) {
-    return (
-      <div className="py-10 text-center text-sm text-slate-400">
-        데이터가 없습니다.
-      </div>
-    );
-  }
-
-  return (
-    <ol className="m-0 list-none space-y-1.5 p-0">
-      {items.map((item, index) => {
-        const labelClass = item.active
-          ? "font-bold text-slate-900"
-          : "text-slate-700 hover:text-slate-900";
-        return (
-          <li key={item.key} className="flex items-start gap-2 text-xs">
-            {showIndex && (
-              <span className="w-4 shrink-0 text-left text-[11px] font-semibold text-slate-400">
-                {index + 1}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                {item.onClick ? (
-                  <button
-                    type="button"
-                    onClick={item.onClick}
-                    className={`block min-w-0 truncate text-left ${labelClass}`}
-                    title={item.label}
-                  >
-                    {item.label}
-                  </button>
-                ) : (
-                  <div className="min-w-0 truncate text-slate-700" title={item.label}>
-                    {item.label}
-                  </div>
-                )}
-                <span className="shrink-0 text-right tabular-nums font-semibold text-slate-800">
-                  {valueFormatter(item.value)}
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#EEF5FF]">
-                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (item.value / maxValue) * 100))}%`, backgroundColor: item.color }} />
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 function BreakdownCard({
   title,
   value,
@@ -1980,29 +1673,6 @@ function MetricBreakdown({
         </div>
       ))}
     </div>
-  );
-}
-
-function Tab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-        active
-          ? ACTIVE_CHIP_CLASS
-          : IDLE_CHIP_CLASS
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
