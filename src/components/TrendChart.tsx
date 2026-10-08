@@ -29,7 +29,7 @@ export function TrendChart({
 }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-[480px] items-center justify-center text-sm text-slate-300">
+      <div className="flex h-[380px] items-center justify-center text-sm text-slate-300">
         데이터 없음
       </div>
     );
@@ -46,7 +46,7 @@ export function TrendChart({
     .sort((a, b) => a.average - b.average);
 
   return (
-    <div className="h-[480px] w-full min-w-0 overflow-hidden">
+    <div className="h-[380px] w-full min-w-0 overflow-hidden">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 10, right: 16, bottom: 4, left: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -79,7 +79,7 @@ export function TrendChart({
               legendType="square"
               stackId="trend"
               stroke={s.color}
-              strokeWidth={1.5}
+              strokeWidth={1}
               fill={s.color}
               fillOpacity={0.2}
               dot={false}
