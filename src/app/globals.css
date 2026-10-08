@@ -144,7 +144,7 @@ body {
   .trend-plot-area > p { flex: 1; min-height: 260px; height: auto; }
   .dashboard-trend .trend-chart {
     height: clamp(220px, calc(100dvh - 440px), 680px);
-    align-self: center;
+    align-self: flex-start;
   }
 
   .flow-stages { flex: 1; min-height: 180px; padding-block: 16px; }
