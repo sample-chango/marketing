@@ -60,9 +60,9 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
   };
 
   return (
-    <section aria-label="광고 성과 흐름" className="funnel-flow-card rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
+    <section aria-label="전환 흐름" className="funnel-flow-card rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="text-base font-semibold text-slate-800">광고가 구매로 이어지는 흐름</h3><p className="mt-1 text-[11px] text-slate-400">{periodText}</p></div>
+        <div><h3 className="text-base font-semibold text-slate-800">전환 흐름</h3><p className="mt-1 text-[11px] text-slate-400">{periodText}</p></div>
         <label className="flex items-center gap-2 text-[11px] text-slate-400">카테고리
           <select aria-label="성과 흐름 카테고리" value={category} onChange={(event) => setCategory(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-slate-400">
             <option value="all">전체</option>{CATEGORIES.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}

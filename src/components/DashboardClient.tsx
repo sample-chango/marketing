@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TopBar } from "@/components/TopBar";
+import { DashboardSections } from "@/components/DashboardSections";
 import { useChangeAnalysis } from "@/components/AppShell";
 import {
   CATEGORIES,
@@ -1208,10 +1209,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="dashboard-viewport">
-      {/* 상단 바: 제목 + 기간 선택(우측). 변화분석/네비/로그아웃은 사이드바 */}
-      <TopBar title="Analytics Dashboard" contentClassName="px-4 py-[18px] md:px-8">
-        {/* 기간 범위 선택 (달력 하나) */}
+    <DashboardSections controls={
         <RangeCalendar
           start={rs}
           end={re}
@@ -1223,10 +1221,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             setRangeEnd(e);
           }}
         />
-      </TopBar>
-
-      {/* 본문 */}
-      <main className="dashboard-scroll" aria-label="대시보드 섹션" tabIndex={0}>
+      }>
       {!data.configured && (
         <Banner tone="amber">Supabase 환경변수가 설정되지 않았습니다.</Banner>
       )}
@@ -1238,7 +1233,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
 
-      <div className="dashboard-screen dashboard-summary">
+      <div className="dashboard-screen dashboard-summary" data-dashboard-title="성과 요약">
       <section className="summary-layout flex flex-1 flex-col gap-3" data-period-average={showPeriodAverage} aria-label="성과 요약">
       <div className="roas-hero" aria-label="전체 광고 성과 ROAS">
         <div>
@@ -1246,7 +1241,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           <p className="roas-number">{o.cost > 0 ? fmtRoas(o.roas) : "—"}</p>
         </div>
         <div className="roas-context">
-          <span className="text-xs text-slate-400">광고비 대비 발생한 매출</span>
+          <span className="text-xs text-slate-200">광고비 대비 발생한 매출</span>
           <p className="mt-2 text-sm font-medium text-white">{o.cost > 0 ? <>광고비 <span className="text-slate-300">1원</span><span aria-hidden="true" className="mx-3 text-[#03C75A]">→</span>매출 <strong className="text-xl text-[#6FE5A3]">{o.roas.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원</strong></> : "광고비 데이터 없음"}</p>
         </div>
       </div>
@@ -1330,10 +1325,10 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
       {/* 전체 성과와 카테고리 기여도를 비교하는 기간 추이 */}
       {data.hasData && (
-        <div className="dashboard-screen dashboard-trend"><PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} /></div>
+        <div className="dashboard-screen dashboard-trend" data-dashboard-title="성과 추이"><PeriodTrend rows={currentRows} dates={selDates} periodText={periodText} /></div>
       )}
 
-      <div className="dashboard-screen dashboard-flow">
+      <div className="dashboard-screen dashboard-flow" data-dashboard-title="전환 흐름">
       <FunnelFlow
         currentRows={currentRows}
         baseRows={baseRows}
@@ -1343,16 +1338,15 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       />
 
       </div>
-      <div className="dashboard-screen dashboard-recommendations">
+      <div className="dashboard-screen dashboard-recommendations" data-dashboard-title="조정 추천">
       <ActionRecommendationPanel
-        title="광고 조정 추천"
+        title="조정 추천"
         periodText={periodText}
         items={dashboardActionExplanations}
         bidDataReady={hasCurrentBidData}
       />
       </div>
-      </main>
-    </div>
+    </DashboardSections>
   );
 }
 

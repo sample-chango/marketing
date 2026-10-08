@@ -33,10 +33,10 @@ export function PeriodTrend({ rows, dates, periodText }: {
   ];
 
   return (
-    <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="기간 내 추이">
+    <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-slate-800">기간 내 추이</h3>
+          <h3 className="font-semibold text-slate-800">성과 추이</h3>
           <p className="mt-1 text-xs text-slate-400">{periodText} · 전체</p>
         </div>
         <div className="inline-flex rounded-lg bg-[#EEF2F6] p-1" aria-label="추이 분석 방식">

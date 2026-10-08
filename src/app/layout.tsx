@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import { isAdminUser } from "@/lib/authz";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
+
+const wantedSans = localFont({
+  src: "./fonts/WantedSansVariable.woff2",
+  weight: "400 1000",
+  variable: "--font-wanted-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "마케팅 애널라이저",
@@ -21,7 +29,7 @@ export default async function RootLayout({
   const user = session?.user ?? null;
 
   return (
-    <html lang="ko" className="h-full antialiased">
+    <html lang="ko" className={`h-full antialiased ${wantedSans.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

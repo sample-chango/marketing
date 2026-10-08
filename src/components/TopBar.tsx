@@ -9,18 +9,22 @@ export function TopBar({
   children,
   maxWidth = "max-w-6xl",
   contentClassName = "px-4 py-3 md:px-8",
+  titleClassName = "",
+  titleLive = false,
 }: {
   title: string;
   children?: React.ReactNode;
   maxWidth?: string;
   contentClassName?: string;
+  titleClassName?: string;
+  titleLive?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-[#D8DEE8] bg-[#EEF2F6] shadow-[0_1px_0_rgba(66,80,102,0.04)] backdrop-blur">
       <div
         className={`mx-auto flex ${maxWidth} flex-wrap items-center justify-between gap-3 ${contentClassName}`}
       >
-        <h1 className="text-xl font-bold text-[#2E3743]">{title}</h1>
+        <h1 className={`text-xl font-bold text-[#2E3743] ${titleClassName}`} aria-live={titleLive ? "polite" : undefined} aria-atomic={titleLive ? true : undefined}>{title}</h1>
         {children && (
           <div className="flex flex-wrap items-center gap-2">{children}</div>
         )}

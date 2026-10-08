@@ -42,6 +42,11 @@ body {
   outline-offset: -2px;
 }
 
+.dashboard-title, .dashboard-screen h3 {
+  font-family: var(--font-wanted-sans), var(--font-google-sans-flex);
+  letter-spacing: -0.025em;
+}
+
 .dashboard-screen {
   box-sizing: border-box;
   display: flex;
@@ -66,7 +71,7 @@ body {
 .roas-hero {
   display: flex;
   flex: 0 0 auto;
-  width: 80%;
+  width: 100%;
   margin-inline: auto;
   align-items: center;
   justify-content: space-between;
@@ -75,7 +80,7 @@ body {
   min-height: 112px;
   padding: 16px 24px;
   border-radius: 15px;
-  background: radial-gradient(ellipse at 100% 0%, #214638 0%, transparent 65%), #15232a;
+  background: radial-gradient(ellipse at 100% 0%, #526d70 0%, transparent 65%), #465466;
   box-shadow: inset 0 2px 0 #03c75a, 0 8px 22px rgb(21 35 42 / 10%);
 }
 
@@ -83,7 +88,7 @@ body {
   margin-top: 6px;
   color: white;
   font-size: clamp(48px, 5vw, 76px);
-  font-weight: 750;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -101,7 +106,7 @@ body {
 .category-donut-chart { flex: 1; min-height: 180px; }
 .category-donut-list { flex-shrink: 0; }
 
-.roas-context { border-left: 1px solid #40524c; padding-left: 24px; }
+.roas-context { border-left: 1px solid #718491; padding-left: 24px; }
 
 @media (min-width: 1024px) {
   .dashboard-scroll { container-type: size; }
