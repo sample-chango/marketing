@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CategorySlice } from "@/components/CategoryBars";
 
-const CHART_HEIGHT = 246;
+const CHART_HEIGHT = 180;
 
 function point(cx: number, cy: number, radius: number, angle: number) {
   // Keep SVG attributes identical across server and browser math engines.
@@ -59,8 +59,8 @@ export function CategoryDonut({
     : undefined;
   const cx = width / 2;
   const cy = CHART_HEIGHT / 2;
-  const radius = Math.max(40, Math.min(94, width / 2 - 24));
-  const inner = Math.max(30, radius - 45);
+  const radius = Math.max(40, Math.min(72, width / 2 - 24));
+  const inner = Math.max(25, radius - 34);
   const segments = data.map((slice, index) => {
     const start = total > 0
       ? data.slice(0, index).reduce((sum, previous) => sum + previous.value, 0) / total * Math.PI * 2
@@ -72,12 +72,12 @@ export function CategoryDonut({
   const middle = selectedSegment && selectedSegment.share > 0
     ? (selectedSegment.start + selectedSegment.end) / 2
     : Math.PI / 4;
-  const bubbleX = Math.max(39, Math.min(width - 39, cx + Math.sin(middle) * (radius + 1)));
-  const bubbleY = Math.max(39, Math.min(CHART_HEIGHT - 39, cy - Math.cos(middle) * (radius + 1)));
+  const bubbleX = Math.max(32, Math.min(width - 32, cx + Math.sin(middle) * (radius + 1)));
+  const bubbleY = Math.max(32, Math.min(CHART_HEIGHT - 32, cy - Math.cos(middle) * (radius + 1)));
 
   return (
     <div data-category-donut={title}>
-      <div ref={chartRef} className="relative mx-auto my-3 h-[246px] w-full max-w-[320px]">
+      <div ref={chartRef} className="relative mx-auto my-1 h-[180px] w-full max-w-[280px]">
         <svg
           className="block h-full w-full overflow-visible"
           viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
@@ -93,7 +93,7 @@ export function CategoryDonut({
               key={slice.label}
               data-category={slice.label}
               data-active={slice.label === selected?.label}
-              d={donutPath(cx, cy, inner, radius + (slice.label === selected?.label ? 11 : 0), slice.start, slice.end)}
+              d={donutPath(cx, cy, inner, radius + (slice.label === selected?.label ? 8 : 0), slice.start, slice.end)}
               fill={slice.color}
               fillRule="evenodd"
               opacity={slice.label === selected?.label ? 1 : 0.5}
@@ -113,18 +113,18 @@ export function CategoryDonut({
         </svg>
         {selected && (
           <div
-            className="pointer-events-none absolute flex h-[74px] w-[74px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full bg-white shadow-[0_5px_22px_rgba(34,52,75,0.08)]"
+            className="pointer-events-none absolute flex h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full bg-white shadow-[0_5px_22px_rgba(34,52,75,0.08)]"
             style={{ left: Number(bubbleX.toFixed(3)), top: Number(bubbleY.toFixed(3)) }}
             data-donut-selection={selected.label}
           >
-            <span className="max-w-[70px] text-center text-[11px] leading-tight text-slate-700">{selected.label}</span>
-            <span className="text-xl font-bold tabular-nums" style={{ color: selected.color }}>
+            <span className="max-w-[58px] text-center text-[10px] leading-tight text-slate-700">{selected.label}</span>
+            <span className="text-lg font-bold tabular-nums" style={{ color: selected.color }}>
               {((selected.value / total) * 100).toFixed(1)}%
             </span>
           </div>
         )}
       </div>
-      <div className="space-y-0.5 border-t border-slate-100 pt-3" role="group" aria-label={`${title} 항목 선택`}>
+      <div className="space-y-0.5 border-t border-slate-100 pt-2" role="group" aria-label={`${title} 항목 선택`}>
         {segments.map((slice) => {
           const active = slice.label === selected?.label;
           return (
@@ -135,7 +135,7 @@ export function CategoryDonut({
               aria-label={`${slice.label}, ${valueFormatter(slice.value)}, ${(slice.share * 100).toFixed(1)}%`}
               aria-pressed={active}
               data-category={slice.label}
-              className={`flex min-h-9 w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 [@media(pointer:coarse)]:min-h-11 ${
+              className={`flex min-h-8 w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 [@media(pointer:coarse)]:min-h-11 ${
                 active ? "bg-[#F5F7FA] font-semibold text-slate-900" : "text-slate-600"
               }`}
               onPointerEnter={() => setHoveredLabel(slice.label)}

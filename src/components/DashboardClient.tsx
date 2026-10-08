@@ -1020,7 +1020,7 @@ function MetricHelpLabel({
       {label}
       <span
         role="tooltip"
-        className="pointer-events-none invisible absolute left-0 top-full z-50 mt-2 w-64 translate-y-1 rounded-lg border border-[#DCE4EE] bg-white p-3 text-left opacity-0 shadow-[0_12px_30px_rgba(66,80,102,0.16)] transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100"
+        className="pointer-events-none invisible fixed bottom-4 left-4 right-4 z-50 translate-y-1 rounded-lg border border-[#DCE4EE] bg-white p-3 text-left opacity-0 shadow-[0_12px_30px_rgba(66,80,102,0.16)] transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 md:absolute md:bottom-auto md:left-0 md:right-auto md:top-full md:mt-2 md:w-64"
       >
         <span className="block text-xs font-semibold text-slate-800">
           {help.title}
@@ -1576,20 +1576,17 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
 
+      <section className="space-y-3" aria-label="성과 요약">
       {/* 상단 카드: ROAS */}
-      <div className="grid gap-5">
-        <div className={CARD_CLASS}>
-          <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 rounded-[15px] bg-white px-5 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)]">
             <span className="text-sm font-medium text-slate-500">ROAS</span>
-          </div>
-          <div className="mt-2 text-5xl font-bold text-slate-900">
+          <div className="text-3xl font-bold tabular-nums text-slate-900">
             {fmtRoas(o.roas)}
           </div>
         </div>
-      </div>
 
       {/* 카테고리 비중 도넛 카드 3개 */}
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         <BreakdownCard
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
@@ -1662,6 +1659,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           )}
         </BreakdownCard>
       </div>
+      </section>
 
       {/* 전체 성과와 카테고리 기여도를 비교하는 기간 추이 */}
       {data.hasData && (
@@ -1669,8 +1667,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       )}
 
       {/* 카테고리 탭 + 퍼널 + 상세 분석 */}
-      <section className={CARD_CLASS}>
-        <div className="mb-5 flex flex-wrap gap-2">
+      <section className="rounded-[15px] bg-white p-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5" aria-label="카테고리 및 상품 분석">
+        <div className="mb-3 flex flex-wrap gap-1.5">
           <Tab active={cat === "all"} onClick={() => setCat("all")}>
             전체
           </Tab>
@@ -1681,7 +1679,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           ))}
         </div>
 
-        <div className="grid items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div className="grid grid-cols-2 items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
           {FUNNEL_STAGES.map((s, i) => {
             const selected = s.key === stageKey;
             return (
@@ -1695,7 +1693,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   }`}
                 >
                   <div
-                    className={`rounded-t-[14px] px-4 py-2 text-center text-sm font-semibold ${
+                    className={`rounded-t-[14px] px-3 py-1.5 text-center text-sm font-semibold ${
                       selected
                         ? "bg-[#03C75A] text-white"
                         : "bg-[#E4EAF1] text-[#4F5B6A]"
@@ -1704,19 +1702,19 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                     {s.label}
                   </div>
                   <div
-                    className={`flex-1 space-y-2 rounded-b-[14px] px-4 py-4 ${
+                    className={`flex-1 space-y-1.5 rounded-b-[14px] px-3 py-2.5 ${
                       selected ? "bg-[#F4FFF8]" : "bg-[#F6F8FB]"
                     }`}
                   >
                     {s.metrics.map((m) => (
                       <div
                         key={m.label}
-                        className="flex items-center justify-between gap-3 text-left"
+                        className="flex items-center justify-between gap-2 text-left"
                       >
                         <div className="text-xs text-slate-500">
                           <MetricHelpLabel label={m.label} />
                         </div>
-                        <div className="shrink-0 text-right font-bold text-slate-800">
+                        <div className="shrink-0 text-right text-sm font-bold tabular-nums text-slate-800">
                           {m.value(current)}
                         </div>
                       </div>
@@ -1733,12 +1731,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           })}
         </div>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-2">
-          <div className="md:col-span-3">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">
+        <div className="mt-4 grid gap-4 md:grid-cols-2 md:gap-6">
+          <div className="min-w-0">
+            <h3 className="mb-2 text-sm font-semibold text-slate-700">
               카테고리별 <MetricHelpLabel label={primary.label} />
             </h3>
-            <div className="md:pr-7">
+            <div>
               <MetricRankList
                 items={catBars.map((b) => ({
                   key: b.slug,
@@ -1755,8 +1753,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             </div>
           </div>
 
-          <div className="md:col-span-3 md:col-start-5 md:pl-7 md:pr-[17px]">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">
+          <div className="min-w-0">
+            <h3 className="mb-2 text-sm font-semibold text-slate-700">
               <MetricHelpLabel label={primary.label} /> 상위 상품{" "}
               <span className="font-normal text-slate-400">
                 · {cat === "all" ? "전체" : CATEGORIES.find((c) => c.slug === cat)?.label}
@@ -2057,20 +2055,20 @@ function MetricRankList({
   }
 
   return (
-    <ol className="m-0 list-none space-y-2.5 p-0">
+    <ol className="m-0 list-none space-y-1.5 p-0">
       {items.map((item, index) => {
         const labelClass = item.active
           ? "font-bold text-slate-900"
           : "text-slate-700 hover:text-slate-900";
         return (
-          <li key={item.key} className="flex items-start gap-2.5 text-sm">
+          <li key={item.key} className="flex items-start gap-2 text-xs">
             {showIndex && (
-              <span className="w-5 shrink-0 pt-0.5 text-left text-xs font-semibold text-slate-400">
+              <span className="w-4 shrink-0 text-left text-[11px] font-semibold text-slate-400">
                 {index + 1}
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <div className="grid grid-cols-[minmax(0,1fr)_10rem] items-start gap-2">
+              <div className="flex items-center justify-between gap-3">
                 {item.onClick ? (
                   <button
                     type="button"
@@ -2085,13 +2083,12 @@ function MetricRankList({
                     {item.label}
                   </div>
                 )}
-                <span aria-hidden />
-              </div>
-              <div className="mt-1 grid grid-cols-[minmax(0,1fr)_10rem] items-center gap-2">
-                <Bar pct={(item.value / maxValue) * 100} color={item.color} />
-                <span className="block w-full text-right tabular-nums font-semibold text-slate-800">
+                <span className="shrink-0 text-right tabular-nums font-semibold text-slate-800">
                   {valueFormatter(item.value)}
                 </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#EEF5FF]">
+                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, (item.value / maxValue) * 100))}%`, backgroundColor: item.color }} />
               </div>
             </div>
           </li>
@@ -2121,11 +2118,11 @@ function BreakdownCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={`min-w-0 ${CARD_CLASS}`}>
+    <div className="min-w-0 rounded-[15px] bg-white p-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-medium text-slate-500">{title}</div>
-          <div className="mt-1 text-2xl font-bold text-slate-900">{value}</div>
+          <div className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</div>
           {average && (
             <div className="mt-1 text-xs font-medium text-slate-400">{average}</div>
           )}
@@ -2137,7 +2134,7 @@ function BreakdownCard({
           </div>
         )}
       </div>
-      <div className="mt-3">
+      <div className="mt-2">
         <CategoryDonut
           key={slices.map((slice) => `${slice.label}:${slice.value}`).join("|")}
           title={title}
