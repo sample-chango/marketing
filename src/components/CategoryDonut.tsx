@@ -99,7 +99,7 @@ export function CategoryDonut({
               d={donutPath(cx, cy, inner, radius + (slice.label === selected?.label ? 8 : 0), slice.start, slice.end)}
               fill={slice.color}
               fillRule="evenodd"
-              opacity={slice.label === selected?.label ? 1 : 0.5}
+              opacity={slice.label === selected?.label ? 1 : 0.25}
               className="cursor-pointer transition-[d,opacity] duration-150 motion-reduce:transition-none"
               onPointerEnter={() => setHoveredLabel(slice.label)}
               onPointerLeave={() => setHoveredLabel(null)}
@@ -116,7 +116,7 @@ export function CategoryDonut({
         </svg>
         {selected && (
           <div
-            className="pointer-events-none absolute flex h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full bg-white shadow-[0_5px_22px_rgba(34,52,75,0.08)]"
+            className="pointer-events-none absolute flex h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full bg-[#F9F9F9] shadow-[0_5px_22px_rgba(34,52,75,0.08)]"
             style={{ left: Number(bubbleX.toFixed(3)), top: Number(bubbleY.toFixed(3)), width: bubbleSize, height: bubbleSize }}
             data-donut-selection={selected.label}
           >

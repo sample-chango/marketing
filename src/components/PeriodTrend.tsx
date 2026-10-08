@@ -5,6 +5,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { buildTrendData, type TrendMetric, type TrendMode } from "@/lib/trend-data";
 import { fmtInt, fmtRoas, fmtWon } from "@/lib/metrics";
 import type { MetricRow } from "@/lib/data";
+import { CATEGORY_COLORS } from "@/lib/categories";
 
 const METRICS: { key: TrendMetric; label: string; format: (value: number) => string }[] = [
   { key: "conversionValue", label: "매출", format: fmtWon },
@@ -28,16 +29,15 @@ export function PeriodTrend({ rows, dates, periodText }: {
   const date = selected?.date ?? "";
   const stats = [
     { name: "매출", value: fmtWon(period.conversionValue), color: "#03C75A", line: true },
-    { name: "광고비", value: fmtWon(period.cost), color: "#CBD5E1" },
+    { name: "광고비", value: fmtWon(period.cost), color: CATEGORY_COLORS.film },
     { name: "ROAS", value: fmtRoas(period.roas) },
   ];
 
   return (
-    <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-white px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
+    <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-[#F9F9F9] px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-slate-800">성과 추이</h3>
-          <p className="mt-1 text-xs text-slate-400">{periodText} · 전체</p>
+          <p className="text-xs text-slate-400">{periodText} · 전체</p>
         </div>
         <div className="inline-flex rounded-lg bg-[#EEF2F6] p-1" aria-label="추이 분석 방식">
           {([{ key: "overall", name: "전체 성과" }, { key: "categories", name: "카테고리 비교" }] as const).map((item) => (

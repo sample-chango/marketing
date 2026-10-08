@@ -5,10 +5,10 @@ import { fmtRoas, fmtWon } from "@/lib/metrics";
 import { adjustedBidRange, adjustmentPercent, shortRecommendationName, type ComparisonExplanation } from "@/lib/recommendation-display";
 
 const GROUPS = [
-  { tone: "good", label: "확대 후보", icon: "↗", accent: "text-emerald-700", background: "bg-emerald-50", border: "border-emerald-100" },
-  { tone: "danger", label: "축소 후보", icon: "↘", accent: "text-rose-700", background: "bg-rose-50", border: "border-rose-100" },
-  { tone: "warn", label: "점검 · 보류", icon: "Ⅱ", accent: "text-amber-700", background: "bg-amber-50", border: "border-amber-100" },
-  { tone: "neutral", label: "데이터 확인", icon: "?", accent: "text-slate-600", background: "bg-slate-50", border: "border-slate-200" },
+  { tone: "good", label: "확대 후보", icon: "↗", accent: "text-emerald-700", background: "bg-[#03C75A]/25" },
+  { tone: "danger", label: "축소 후보", icon: "↘", accent: "text-rose-700", background: "bg-rose-500/25" },
+  { tone: "warn", label: "점검 · 보류", icon: "Ⅱ", accent: "text-amber-700", background: "bg-amber-500/25" },
+  { tone: "neutral", label: "데이터 확인", icon: "?", accent: "text-slate-600", background: "bg-slate-500/25" },
 ] as const;
 
 function RevenueBars({ evidence }: { evidence: NonNullable<ComparisonExplanation["evidence"]> }) {
@@ -53,10 +53,9 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
   const groups = GROUPS.map((group) => ({ ...group, items: items.filter((item) => item.tone === group.tone) })).filter((group) => group.items.length > 0);
 
   return (
-    <section aria-label={title} className="recommendation-card rounded-[15px] bg-white px-4 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
+    <section aria-label={title} className="recommendation-card rounded-[15px] bg-[#F9F9F9] px-4 py-3 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5">
       <header className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h3 className="text-base font-semibold text-slate-800">{title}</h3>
           <span className="text-[11px] text-slate-400">{periodText}</span>
         </div>
         <span className="text-[11px] text-slate-500">{items.every((item) => item.tone === "neutral") ? "비교 데이터 필요" : "총예산 유지 · 상품 간 재배분"}</span>
@@ -66,7 +65,7 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
           <span aria-hidden="true">ⓘ</span>입찰가 미등록 · 조정 비율만 표시
           <span className="group relative ml-auto shrink-0 cursor-help underline decoration-dotted" tabIndex={0} aria-label="입찰가 등록 안내">
             안내
-            <span role="tooltip" className="pointer-events-none invisible absolute right-0 top-full z-10 mt-1 w-52 rounded-lg border border-amber-100 bg-white p-2 text-left leading-5 opacity-0 shadow-md group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100">
+            <span role="tooltip" className="pointer-events-none invisible absolute right-0 top-full z-10 mt-1 w-52 rounded-lg border border-amber-100 bg-[#F9F9F9] p-2 text-left leading-5 opacity-0 shadow-md group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100">
               선택기간 마지막 날의 입찰가가 필요합니다. D열 현재 입찰가가 포함된 파일을 업로드하면 현재가와 조정 후 금액이 표시됩니다.
             </span>
           </span>
@@ -89,19 +88,19 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
                   <button key={`${item.title}-${index}`} type="button" title={name}
                     aria-label={`${name}, ${item.reason ?? group.label}, ${label}${adjustment ? ` ${adjustmentPercent(adjustment)}` : ""}, 상세 근거 보기`}
                     onClick={() => { setSelected(item); dialog.current?.showModal(); }}
-                    className={`min-w-0 rounded-lg border p-2 text-left transition hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${group.border}`}>
+                    className={`min-w-0 rounded-lg p-2 text-left transition hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${group.background}`}>
                     <span className="flex items-center gap-1 text-xs font-semibold text-slate-800">
                       <span className="min-w-0 flex-1 truncate">{name}</span><span aria-hidden="true" className="text-slate-300">›</span>
                     </span>
                     <span className="mt-1 flex items-center justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block text-[10px] text-slate-400">{item.reason ?? (item.evidence ? "성과 확인" : "자료를 등록해 주세요")}</span>
+                        <span className="block text-[10px] text-slate-500">{item.reason ?? (item.evidence ? "성과 확인" : "자료를 등록해 주세요")}</span>
                         {item.evidence && <span className="flex flex-wrap items-baseline gap-x-1.5 tabular-nums">
                           <span className="text-xs font-bold text-slate-800">ROAS {fmtRoas(item.evidence.roas)}</span>
-                          <span className="text-[10px] text-slate-400">전체 {fmtRoas(item.evidence.overallRoas)}</span>
+                          <span className="text-[10px] text-slate-500">전체 {fmtRoas(item.evidence.overallRoas)}</span>
                         </span>}
                       </span>
-                      <span className={`shrink-0 rounded-md px-2 py-1 text-right ${group.background} ${group.accent}`}>
+                      <span className={`shrink-0 rounded-md px-2 py-1 text-right ${group.accent}`}>
                         <span className="block text-[10px] leading-3">{label}</span>
                         <span className="block text-sm font-bold leading-4 tabular-nums">{adjustment ? adjustmentPercent(adjustment) : item.tone === "good" ? "유지" : "미정"}</span>
                         {(bidDataReady || item.evidence?.currentBid != null) && <BidRange item={item} />}
@@ -116,7 +115,7 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
         ))}
       </div>
       <dialog ref={dialog} onClose={() => setSelected(null)} aria-labelledby="recommendation-detail-title"
-        className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%_-_32px)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-white p-5 shadow-xl backdrop:bg-slate-900/30">
+        className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%_-_32px)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-[#F9F9F9] p-5 shadow-xl backdrop:bg-slate-900/30">
         {selected && <>
           <header className="flex items-start justify-between gap-3">
             <h4 id="recommendation-detail-title" className="text-sm font-semibold text-slate-900">{shortRecommendationName(selected.target ?? selected.title)}</h4>

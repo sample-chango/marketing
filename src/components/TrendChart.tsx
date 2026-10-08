@@ -5,6 +5,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale,
 } from "recharts";
 import { fmtInt, fmtRoas, fmtWon } from "@/lib/metrics";
+import { CATEGORY_COLORS } from "@/lib/categories";
 import type { TrendMode, TrendPoint, TrendSeries } from "@/lib/trend-data";
 
 export type { TrendSeries } from "@/lib/trend-data";
@@ -49,14 +50,14 @@ function TrendTooltip({ active, payload, mode, series, valueFmt, metricLabel }: 
   const items = mode === "overall"
     ? [
         { name: "매출", value: fmtWon(point.conversionValue), color: "#03C75A" },
-        { name: "광고비", value: fmtWon(point.cost), color: "#CBD5E1" },
+        { name: "광고비", value: fmtWon(point.cost), color: CATEGORY_COLORS.film },
         { name: "전환", value: `${fmtInt(point.conversions)}개` },
         { name: "ROAS", value: fmtRoas(point.roas) },
       ]
     : [...series].sort((a, b) => Number(point[b.key]) - Number(point[a.key]))
         .map((s) => ({ name: s.name, value: valueFmt(Number(point[s.key])), color: s.color }));
   return (
-    <div className="min-w-[190px] rounded-xl border border-slate-100 bg-white p-3 text-xs shadow-lg">
+    <div className="min-w-[190px] rounded-xl border border-slate-100 bg-[#F9F9F9] p-3 text-xs shadow-lg">
       <p className="mb-2 font-semibold text-slate-700">{point.date.replaceAll("-", ".")}</p>
       {items.map((item) => (
         <div key={item.name} className="flex items-center justify-between gap-5 py-1">
@@ -116,7 +117,7 @@ export function TrendChart({ data, series, mode, valueFmt, metricLabel, isCount,
             </Bar>
           )) : (
             <>
-              <Bar dataKey="cost" name="광고비" fill="#CBD5E1" maxBarSize={32}
+              <Bar dataKey="cost" name="광고비" fill={CATEGORY_COLORS.film} maxBarSize={32}
                 radius={[3, 3, 0, 0]} isAnimationActive={false} />
               <Line dataKey="conversionValue" name="매출" type="linear" stroke="#03C75A"
                 strokeWidth={1.5} dot={false} activeDot={false} isAnimationActive={false} />

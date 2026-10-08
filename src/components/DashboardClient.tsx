@@ -41,7 +41,7 @@ const BRAND = {
 };
 
 const CARD_CLASS =
-  "rounded-[15px] bg-white p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
+  "rounded-[15px] bg-[#F9F9F9] p-6 shadow-[0_8px_22px_rgba(66,80,102,0.05)]";
 const CHANGE_ANALYSIS_STORAGE_KEY = "marketing-change-analysis-ranges";
 
 const CHANGE_COLS: {
@@ -1237,12 +1237,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
       <section className="summary-layout flex flex-1 flex-col gap-3" data-period-average={showPeriodAverage} aria-label="성과 요약">
       <div className="roas-hero" aria-label="전체 광고 성과 ROAS">
         <div>
-          <p className="flex items-center gap-2 text-xs font-medium text-slate-300"><span className="h-2 w-2 rounded-full bg-[#03C75A]" aria-hidden="true" />전체 광고 성과 · ROAS</p>
+          <p className="flex items-center gap-2 text-[10.8px] leading-[14.4px] font-medium text-slate-300"><span className="h-2 w-2 rounded-full bg-[#03C75A]" aria-hidden="true" />전체 광고 성과 · ROAS</p>
           <p className="roas-number">{o.cost > 0 ? fmtRoas(o.roas) : "—"}</p>
         </div>
         <div className="roas-context">
-          <span className="text-xs text-slate-200">광고비 대비 발생한 매출</span>
-          <p className="mt-2 text-sm font-medium text-white">{o.cost > 0 ? <>광고비 <span className="text-slate-300">1원</span><span aria-hidden="true" className="mx-3 text-[#03C75A]">→</span>매출 <strong className="text-xl text-[#6FE5A3]">{o.roas.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원</strong></> : "광고비 데이터 없음"}</p>
+          <span className="text-[10.8px] leading-[14.4px] text-slate-200">광고비 대비 발생한 매출</span>
+          <p className="mt-[7.2px] text-[12.6px] leading-[18px] font-medium text-white">{o.cost > 0 ? <>광고비 <span className="text-slate-300">1원</span><span aria-hidden="true" className="mx-3 text-[#03C75A]">→</span>매출 <strong className="text-[18px] text-[#6FE5A3]">{o.roas.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원</strong></> : "광고비 데이터 없음"}</p>
         </div>
       </div>
 
@@ -1613,7 +1613,7 @@ function BreakdownCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="breakdown-card min-w-0 rounded-[15px] bg-white p-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)]">
+    <div className="breakdown-card min-w-0 rounded-[15px] bg-[#F9F9F9] p-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-medium text-slate-500">{title}</div>
