@@ -73,7 +73,7 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
         {FLOW_STAGES.map((item, index) => <Fragment key={item.key}>
           <button type="button" aria-pressed={stage === item.key} onClick={() => setStage(item.key)}
             className={`flex h-full min-w-0 flex-col gap-1 rounded-xl px-3 py-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${stage === item.key ? "bg-[#03C75A]/25" : "bg-[#EEF2F6] hover:bg-slate-100"}`}>
-            <FlowIcon stage={item.key} /><span className="mt-2 text-xs text-slate-600">{item.label}</span>
+            <FlowIcon stage={item.key} /><span className={`mt-2 text-slate-600 ${item.key === "revenue" ? "text-sm font-medium" : "text-xs"}`}>{item.label}</span>
             <strong className="whitespace-nowrap text-[17px] font-bold tabular-nums text-slate-900 md:text-xl lg:text-[22px]">{stageValue(item.key, current)}</strong>
             <span className="hidden text-[11px] text-slate-400 md:block">{item.description}</span>
           </button>
@@ -83,17 +83,21 @@ export function FunnelFlow({ currentRows, baseRows, currentDays, baseDays, perio
           </div>}
         </Fragment>)}
       </div>
-      <div className="my-3 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-y border-slate-100 py-3" aria-live="polite">
-        <div className="min-w-0"><p className="text-[11px] text-slate-400">{selected.label}</p><p className="mt-1 text-sm font-semibold text-slate-800 sm:text-base">{selected.title}</p><p className="mt-1 text-[11px] text-slate-400">{selected.detail}</p></div>
-        <div className="min-w-0 text-xs">
+      <div className="my-3 border-y border-slate-100 py-3" aria-live="polite">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h4 className="text-base font-semibold text-slate-800">{selected.label}</h4>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           {comparison ? <><p className={`font-medium ${stage === "awareness" || comparison.direction === "same" ? "text-slate-500" : comparison.direction === "up" ? "text-emerald-700" : "text-orange-700"}`}>
             <span aria-hidden="true">{comparison.direction === "up" ? "↑" : comparison.direction === "down" ? "↓" : "＝"}</span> {changeLabel} {comparison.direction === "same" ? "비슷함" : comparison.direction === "up" ? "높아짐" : "낮아짐"}
-          </p><p className="mt-1 text-[11px] tabular-nums text-slate-400">이전 {preciseComparisonValue(comparison.before)} → 현재 {preciseComparisonValue(comparison.now)}</p></>
+          </p><p className="text-[11px] tabular-nums text-slate-500">이전 {preciseComparisonValue(comparison.before)} → 현재 {preciseComparisonValue(comparison.now)}</p></>
             : <p className="text-[11px] text-slate-400">— 이전 기간 비교 데이터 부족</p>}
+          </div>
         </div>
+        <p className="mt-2 text-lg font-semibold text-slate-800 sm:text-xl">{selected.title}</p>
+        <p className="mt-1 text-[11px] text-slate-400">{selected.detail}</p>
       </div>
       <div aria-live="polite">
-        <div className="mb-2 flex items-center justify-between gap-2"><h4 className="text-xs font-semibold text-slate-700">{productLabel} · {category === "all" ? "전체" : categoryLabel(category)}</h4><span className="text-[11px] text-slate-400">최대 3개</span></div>
+        <div className="mb-2"><h4 className="text-xs font-semibold text-slate-700">{productLabel}{category !== "all" && <> · {categoryLabel(category)}</>}</h4></div>
         {products.length > 0 ? <ol className="grid gap-2 sm:grid-cols-3">
           {products.map((product, index) => {
             const rate = stage === "awareness" ? null : flowRate(product.metrics, stage);

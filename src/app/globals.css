@@ -137,7 +137,7 @@ body {
   .trend-plot-area { flex: 1; display: flex; align-items: stretch; }
   .trend-plot-area > p { flex: 1; min-height: 260px; height: auto; }
   .dashboard-trend .trend-chart {
-    height: clamp(260px, calc(100dvh - 400px), 720px);
+    height: clamp(260px, calc(100dvh - 312px), 808px);
     align-self: center;
   }
   .dashboard-trend .trend-categories .trend-chart {
@@ -177,6 +177,7 @@ body {
 }
 
 @media (max-width: 639px) {
+  .flow-stages > button > strong { font-size: clamp(14px, 4vw, 17px); }
   .roas-hero { min-height: 80.64px; padding: 10.8px 16px; gap: 7.2px; }
   .roas-context { border-left: 0; padding-left: 0; }
 }

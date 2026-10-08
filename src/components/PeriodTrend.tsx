@@ -55,7 +55,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
           <div>
             <p className="text-xs text-slate-500">기간 총 {cfg.label}</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <p className="text-xl font-bold tabular-nums text-slate-900">{cfg.format(period[metric])}</p>
+              <p className="text-2xl font-bold tabular-nums text-slate-900 sm:text-[28px]">{cfg.format(period[metric])}</p>
               <p className="text-[11px] text-slate-400">전체 {series.length}개 카테고리</p>
             </div>
           </div>
@@ -74,7 +74,7 @@ export function PeriodTrend({ rows, dates, periodText }: {
                 {stat.color && <i aria-hidden="true" className={stat.line ? "h-[2px] w-4" : "h-2.5 w-2.5 rounded-sm"} style={{ backgroundColor: stat.color }} />}
                 {stat.name}
               </p>
-              <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{stat.value}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 sm:text-[28px]">{stat.value}</p>
             </div>
           ))}
         </div>
@@ -92,10 +92,10 @@ export function PeriodTrend({ rows, dates, periodText }: {
       )}
 
       </div>
-      {selected && (
+      {categories && selected && (
         <>
           <div className="mb-2 mt-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-slate-700">{categories ? `선택일 카테고리별 ${cfg.label}` : "날짜별 상세 수치"}</p>
+            <p className="text-xs font-semibold text-slate-700">{`선택일 카테고리별 ${cfg.label}`}</p>
             <label className="flex items-center gap-2 text-[11px] text-slate-400">선택 날짜
               <select value={date} aria-label="추이 상세 날짜" onChange={(event) => setSelectedDate(event.target.value)}
                 className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">
@@ -103,7 +103,6 @@ export function PeriodTrend({ rows, dates, periodText }: {
               </select>
             </label>
           </div>
-          {categories ? (
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
               aria-label={`카테고리별 ${date}의 ${cfg.label}와 기간 합계`}>
               {series.map((item) => (
@@ -128,16 +127,6 @@ export function PeriodTrend({ rows, dates, periodText }: {
                 </li>
               ))}
             </ul>
-          ) : (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-100 pt-2 text-xs sm:grid-cols-4" aria-live="polite">
-              {[
-                ["매출", fmtWon(selected.conversionValue)], ["광고비", fmtWon(selected.cost)],
-                ["전환", `${fmtInt(selected.conversions)}개`], ["ROAS", fmtRoas(selected.roas)],
-              ].map(([name, value]) => (
-                <div key={name}><dt className="text-[11px] text-slate-400">{name}</dt><dd className="mt-1 font-semibold tabular-nums text-slate-700">{value}</dd></div>
-              ))}
-            </dl>
-          )}
         </>
       )}
     </section>

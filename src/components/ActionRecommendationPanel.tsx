@@ -32,11 +32,12 @@ function RevenueBars({ evidence }: { evidence: NonNullable<ComparisonExplanation
 function BidRange({ item }: { item: ComparisonExplanation }) {
   const adjustment = item.adjustment;
   const bid = item.evidence?.currentBid ?? null;
+  if (bid == null) return null;
   const range = adjustment ? adjustedBidRange(bid, adjustment) : null;
   return (
     <span className="block text-[9px] leading-3 tabular-nums text-slate-500">
       {range ? `${Math.round(bid!).toLocaleString("ko-KR")} → ${range[0].toLocaleString("ko-KR")}${range[0] === range[1] ? "" : `~${range[1].toLocaleString("ko-KR")}`}원`
-        : bid != null ? `현재 ${Math.round(bid).toLocaleString("ko-KR")}원` : "입찰가 미등록"}
+        : `현재 ${Math.round(bid).toLocaleString("ko-KR")}원`}
     </span>
   );
 }
@@ -58,19 +59,8 @@ export function ActionRecommendationPanel({ title, periodText, items, bidDataRea
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-[11px] text-slate-400">{periodText}</span>
         </div>
-        <span className="text-[11px] text-slate-500">{items.every((item) => item.tone === "neutral") ? "비교 데이터 필요" : "총예산 유지 · 상품 간 재배분"}</span>
+        {items.every((item) => item.tone === "neutral") && <span className="text-[11px] text-slate-500">비교 데이터 필요</span>}
       </header>
-      {!bidDataReady && items.some((item) => item.adjustment) && (
-        <p className="mb-3 flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
-          <span aria-hidden="true">ⓘ</span>입찰가 미등록 · 조정 비율만 표시
-          <span className="group relative ml-auto shrink-0 cursor-help underline decoration-dotted" tabIndex={0} aria-label="입찰가 등록 안내">
-            안내
-            <span role="tooltip" className="pointer-events-none invisible absolute right-0 top-full z-10 mt-1 w-52 rounded-lg border border-amber-100 bg-[#F9F9F9] p-2 text-left leading-5 opacity-0 shadow-md group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100">
-              선택기간 마지막 날의 입찰가가 필요합니다. D열 현재 입찰가가 포함된 파일을 업로드하면 현재가와 조정 후 금액이 표시됩니다.
-            </span>
-          </span>
-        </p>
-      )}
       <div className={`recommendation-groups grid items-start gap-3 ${groups.length === 1 ? "" : groups.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
         {groups.map((group) => (
           <section key={group.tone} aria-label={group.label} className="recommendation-group min-w-0">

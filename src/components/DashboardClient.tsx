@@ -914,7 +914,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [rangeStart, setRangeStart] = useState(latest);
   const [rangeEnd, setRangeEnd] = useState(latest);
   const { showChange } = useChangeAnalysis();
-  const [costDetailOpen, setCostDetailOpen] = useState(false);
   const [analysisAStart, setAnalysisAStart] = useState(previous);
   const [analysisAEnd, setAnalysisAEnd] = useState(previous);
   const [analysisBStart, setAnalysisBStart] = useState(latest);
@@ -1164,8 +1163,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
   const days = rs && re ? daysInclusive(rs, re) : 0;
   const showPeriodAverage = days > 1;
-  const effBudget = data.dailyBudget * days;
-  const execRate = effBudget > 0 ? o.cost / effBudget : null;
   const periodText = rs
     ? rs === re
       ? fmtDate(rs)
@@ -1267,58 +1264,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           value={fmtWon(o.cost)}
           average={showPeriodAverage ? `일 평균 ${fmtWon(o.cost / days)}` : undefined}
           valueFormatter={fmtWon}
-          action={
-            <button
-              type="button"
-              onClick={() => setCostDetailOpen((value) => !value)}
-              className="text-[11px] font-medium text-[#03A84E] hover:text-[#027A38]"
-            >
-              {costDetailOpen ? "집행내역 접기 ▲" : "집행내역 보기 ▼"}
-            </button>
-          }
           slices={slicesOf((m) => m.cost)}
-        >
-          {costDetailOpen && (
-            <div className="rounded-lg border border-[#E1E7EF] bg-[#F6F8FB] p-3 text-xs text-slate-500">
-              <div className="flex items-center justify-between gap-3">
-                <span>기간 예산</span>
-                <span className="tabular-nums font-semibold text-slate-700">
-                  {fmtWon(effBudget)}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <span>일 예산 × 기간</span>
-                <span className="tabular-nums text-slate-400">
-                  {fmtWon(data.dailyBudget)} × {days}일
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <span>집행률</span>
-                <span
-                  className={
-                    execRate && execRate > 1
-                      ? "tabular-nums font-semibold text-red-500"
-                      : "tabular-nums font-semibold text-[#03A84E]"
-                  }
-                >
-                  {execRate != null ? fmtPct(execRate) : "-"}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <span>잔여</span>
-                <span
-                  className={
-                    effBudget - o.cost < 0
-                      ? "tabular-nums font-semibold text-red-500"
-                      : "tabular-nums font-semibold text-[#03A84E]"
-                  }
-                >
-                  {fmtWon(effBudget - o.cost)}
-                </span>
-              </div>
-            </div>
-          )}
-        </BreakdownCard>
+        />
       </div>
       </section>
       </div>
