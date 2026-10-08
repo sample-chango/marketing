@@ -18,7 +18,7 @@ import {
   fmtRoas,
   type DerivedMetrics,
 } from "@/lib/metrics";
-import { CategoryBars } from "@/components/CategoryBars";
+import { CategoryDonut } from "@/components/CategoryDonut";
 import { TrendChart } from "@/components/TrendChart";
 import type { DashboardData, MetricRow } from "@/lib/data";
 
@@ -1253,7 +1253,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   const [trendByCat, setTrendByCat] = useState(true);
   const { showChange } = useChangeAnalysis();
   const [costDetailOpen, setCostDetailOpen] = useState(false);
-  const [breakdownShowPercent, setBreakdownShowPercent] = useState(false);
   const [analysisAStart, setAnalysisAStart] = useState(previous);
   const [analysisAEnd, setAnalysisAEnd] = useState(previous);
   const [analysisBStart, setAnalysisBStart] = useState(latest);
@@ -1701,15 +1700,13 @@ export function DashboardClient({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      {/* 카테고리 비중 막대 카드 3개 */}
-      <div className="grid gap-5 md:grid-cols-3">
+      {/* 카테고리 비중 도넛 카드 3개 */}
+      <div className="grid gap-5 xl:grid-cols-3">
         <BreakdownCard
           title="총 전환건수"
           value={`${fmtInt(o.conversions)}개`}
           average={showPeriodAverage ? `일 평균 ${fmtAvgCount(o.conversions / days)}개` : undefined}
           valueFormatter={(value) => `${fmtInt(value)}개`}
-          showPercent={breakdownShowPercent}
-          onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
           slices={slicesOf((m) => m.conversions)}
         />
         <BreakdownCard
@@ -1717,8 +1714,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           value={fmtWon(o.conversionValue)}
           average={showPeriodAverage ? `일 평균 ${fmtWon(o.conversionValue / days)}` : undefined}
           valueFormatter={fmtWon}
-          showPercent={breakdownShowPercent}
-          onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
           slices={slicesOf((m) => m.conversionValue)}
         />
         <BreakdownCard
@@ -1726,8 +1721,6 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           value={fmtWon(o.cost)}
           average={showPeriodAverage ? `일 평균 ${fmtWon(o.cost / days)}` : undefined}
           valueFormatter={fmtWon}
-          showPercent={breakdownShowPercent}
-          onToggleDisplay={() => setBreakdownShowPercent((value) => !value)}
           action={
             <button
               type="button"
@@ -2284,8 +2277,6 @@ function BreakdownCard({
   action,
   slices,
   valueFormatter,
-  showPercent,
-  onToggleDisplay,
   children,
 }: {
   title: string;
@@ -2295,8 +2286,6 @@ function BreakdownCard({
   action?: React.ReactNode;
   slices: { label: string; value: number; color: string }[];
   valueFormatter?: (value: number) => string;
-  showPercent?: boolean;
-  onToggleDisplay?: () => void;
   children?: React.ReactNode;
 }) {
   return (
@@ -2317,11 +2306,11 @@ function BreakdownCard({
         )}
       </div>
       <div className="mt-3">
-        <CategoryBars
+        <CategoryDonut
+          key={slices.map((slice) => `${slice.label}:${slice.value}`).join("|")}
+          title={title}
           slices={slices}
           valueFormatter={valueFormatter}
-          showPercent={showPercent}
-          onToggleDisplay={onToggleDisplay}
         />
       </div>
       {children && <div className="mt-4 border-t border-slate-100 pt-4">{children}</div>}
