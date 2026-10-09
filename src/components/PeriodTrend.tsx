@@ -5,6 +5,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { buildTrendData, type TrendMetric, type TrendMode } from "@/lib/trend-data";
 import { fmtInt, fmtWon } from "@/lib/metrics";
 import type { MetricRow } from "@/lib/data";
+import { CATEGORY_COLORS } from "@/lib/categories";
 
 const METRICS: { key: TrendMetric; label: string; format: (value: number) => string }[] = [
   { key: "conversionValue", label: "매출", format: fmtWon },
@@ -30,9 +31,15 @@ export function PeriodTrend({ rows, dates }: {
     <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-[#F9F9F9] px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
       <header className="trend-summary">
         <div className="trend-summary-primary min-w-0">
-          <p className="flex items-center gap-1.5 text-xs text-slate-500">
-            {!categories && <i aria-hidden="true" className="h-[2px] w-4" style={{ backgroundColor: "#03C75A" }} />}
-            기간 총 {categories ? cfg.label : "매출"}
+          <p className="flex items-center gap-4 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5">
+              {!categories && <i aria-hidden="true" className="h-[2px] w-4" style={{ backgroundColor: "#03C75A" }} />}
+              기간 총 {categories ? cfg.label : "매출"}
+            </span>
+            {!categories && <span className="inline-flex items-center gap-1.5">
+              <i aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CATEGORY_COLORS.film }} />
+              광고비
+            </span>}
           </p>
           <p className="trend-primary-value mt-1 font-bold tabular-nums text-slate-900">
             {categories ? cfg.format(period[metric]) : fmtWon(period.conversionValue)}
