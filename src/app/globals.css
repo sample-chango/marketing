@@ -116,6 +116,25 @@ body {
 .flow-stages > button[aria-pressed="true"] { background: #465466; }
 .flow-stages > button[aria-pressed="true"] :is(svg, span, strong) { color: var(--color-white); }
 
+.trend-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 44px 84px 56px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.trend-summary-primary { grid-row: 2; align-self: center; }
+.trend-summary-controls { grid-row: 1; justify-self: end; align-self: start; }
+.trend-summary-secondary { grid-row: 3; display: flex; align-items: end; }
+.trend-primary-value { font-size: clamp(32px, 4vw, 52px); line-height: 1.1; letter-spacing: -0.045em; }
+
+@media (min-width: 640px) {
+  .trend-summary { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 44px 56px; }
+  .trend-summary-primary { grid-column: 1; grid-row: 1 / 3; }
+  .trend-summary-controls { grid-column: 2; }
+  .trend-summary-secondary { grid-column: 2; grid-row: 2; justify-content: end; }
+}
+
 @media (min-width: 1024px) {
   .dashboard-scroll { container-type: size; }
   .summary-layout {

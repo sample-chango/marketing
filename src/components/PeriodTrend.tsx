@@ -27,15 +27,24 @@ export function PeriodTrend({ rows, dates }: {
   const categories = mode === "categories";
   const date = selected?.date ?? "";
   const stats = [
-    { name: "매출", value: fmtWon(period.conversionValue), color: "#03C75A", line: true },
     { name: "광고비", value: fmtWon(period.cost), color: CATEGORY_COLORS.film },
     { name: "ROAS", value: fmtRoas(period.roas) },
   ];
 
   return (
     <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-[#F9F9F9] px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
-      <header className="flex flex-wrap items-center justify-end gap-2">
-        <div className="inline-flex rounded-lg bg-[#EEF2F6] p-1" aria-label="추이 분석 방식">
+      <header className="trend-summary">
+        <div className="trend-summary-primary min-w-0">
+          <p className="flex items-center gap-1.5 text-xs text-slate-500">
+            {!categories && <i aria-hidden="true" className="h-[2px] w-4" style={{ backgroundColor: "#03C75A" }} />}
+            기간 총 {categories ? cfg.label : "매출"}
+          </p>
+          <p className="trend-primary-value mt-1 font-bold tabular-nums text-slate-900">
+            {categories ? cfg.format(period[metric]) : fmtWon(period.conversionValue)}
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">전체 {series.length}개 카테고리</p>
+        </div>
+        <div className="trend-summary-controls inline-flex rounded-lg bg-[#EEF2F6] p-1" aria-label="추이 분석 방식">
           {([{ key: "overall", name: "전체 성과" }, { key: "categories", name: "카테고리 비교" }] as const).map((item) => (
             <button type="button" key={item.key} aria-pressed={mode === item.key}
               onClick={() => { setMode(item.key); setHighlightedKey(null); }}
@@ -44,37 +53,29 @@ export function PeriodTrend({ rows, dates }: {
             </button>
           ))}
         </div>
+        <div className="trend-summary-secondary">
+          {categories ? (
+            <label className="flex items-center gap-2 text-[11px] text-slate-400">지표
+              <select value={metric} aria-label="카테고리 비교 지표" onChange={(event) => setMetric(event.target.value as TrendMetric)}
+                className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700">
+                {METRICS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+              </select>
+            </label>
+          ) : (
+            <div className="flex items-end gap-x-6">
+              {stats.map((stat) => (
+                <div key={stat.name}>
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                    {stat.color && <i aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: stat.color }} />}
+                    {stat.name}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold leading-8 tabular-nums text-slate-900 sm:text-[28px]">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
-
-      {categories ? (
-        <div className="my-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-slate-500">기간 총 {cfg.label}</p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <p className="text-2xl font-bold tabular-nums text-slate-900 sm:text-[28px]">{cfg.format(period[metric])}</p>
-              <p className="text-[11px] text-slate-400">전체 {series.length}개 카테고리</p>
-            </div>
-          </div>
-          <label className="flex flex-col gap-1.5 text-[11px] text-slate-400">지표
-            <select value={metric} aria-label="카테고리 비교 지표" onChange={(event) => setMetric(event.target.value as TrendMetric)}
-              className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700">
-              {METRICS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-            </select>
-          </label>
-        </div>
-      ) : (
-        <div className="my-3 flex flex-wrap items-start gap-x-6 gap-y-2">
-          {stats.map((stat) => (
-            <div key={stat.name}>
-              <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                {stat.color && <i aria-hidden="true" className={stat.line ? "h-[2px] w-4" : "h-2.5 w-2.5 rounded-sm"} style={{ backgroundColor: stat.color }} />}
-                {stat.name}
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 sm:text-[28px]">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
       <p className="mb-1 text-[11px] text-slate-400">{categories && metric === "conversions" ? "전환 · 개" : "금액 · 원"}</p>
       <div className="trend-plot-area">
       {dates.length <= 1 ? (
