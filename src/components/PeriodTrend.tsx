@@ -3,9 +3,8 @@
 import { useMemo, useState } from "react";
 import { TrendChart } from "@/components/TrendChart";
 import { buildTrendData, type TrendMetric, type TrendMode } from "@/lib/trend-data";
-import { fmtInt, fmtRoas, fmtWon } from "@/lib/metrics";
+import { fmtInt, fmtWon } from "@/lib/metrics";
 import type { MetricRow } from "@/lib/data";
-import { CATEGORY_COLORS } from "@/lib/categories";
 
 const METRICS: { key: TrendMetric; label: string; format: (value: number) => string }[] = [
   { key: "conversionValue", label: "매출", format: fmtWon },
@@ -26,10 +25,6 @@ export function PeriodTrend({ rows, dates }: {
   const selected = data.find((point) => point.date === selectedDate) ?? data[data.length - 1];
   const categories = mode === "categories";
   const date = selected?.date ?? "";
-  const stats = [
-    { name: "광고비", value: fmtWon(period.cost), color: CATEGORY_COLORS.film },
-    { name: "ROAS", value: fmtRoas(period.roas) },
-  ];
 
   return (
     <section className={`period-trend-card ${categories ? "trend-categories" : ""} rounded-[15px] bg-[#F9F9F9] px-4 py-4 shadow-[0_8px_22px_rgba(66,80,102,0.05)] sm:px-5`} aria-label="성과 추이">
@@ -53,28 +48,16 @@ export function PeriodTrend({ rows, dates }: {
             </button>
           ))}
         </div>
-        <div className="trend-summary-secondary">
-          {categories ? (
+        {categories && (
+          <div className="trend-summary-secondary">
             <label className="flex items-center gap-2 text-[11px] text-slate-400">지표
               <select value={metric} aria-label="카테고리 비교 지표" onChange={(event) => setMetric(event.target.value as TrendMetric)}
                 className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700">
                 {METRICS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
               </select>
             </label>
-          ) : (
-            <div className="flex items-end gap-x-6">
-              {stats.map((stat) => (
-                <div key={stat.name}>
-                  <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                    {stat.color && <i aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: stat.color }} />}
-                    {stat.name}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold leading-8 tabular-nums text-slate-900 sm:text-[28px]">{stat.value}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </header>
       <p className="mb-1 text-[11px] text-slate-400">{categories && metric === "conversions" ? "전환 · 개" : "금액 · 원"}</p>
       <div className="trend-plot-area">
